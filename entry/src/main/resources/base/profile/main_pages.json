@@ -1,0 +1,9 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/Transactions",
+    "pages/AddTransaction",
+    "pages/Budget",
+    "pages/Settings"
+  ]
+}

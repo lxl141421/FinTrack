@@ -1,0 +1,20 @@
+# HarmonyOS build outputs
+/build/
+/.hvigor/
+/node_modules/
+/oh_modules/
+/.cxx/
+*.har
+*.hap
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

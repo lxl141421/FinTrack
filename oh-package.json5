@@ -1,0 +1,12 @@
+{
+  "name": "fintrack",
+  "version": "1.0.0",
+  "description": "HarmonyOS Personal Finance Manager",
+  "main": "",
+  "author": "lxl141421",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.19"
+  }
+}

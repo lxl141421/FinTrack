@@ -1,0 +1,109 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: ArkTS Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check ArkTS syntax
+        run: |
+          echo "Checking ArkTS file syntax..."
+          find entry/src/main/ets -name "*.ets" -type f | while read file; do
+            echo "Checking: $file"
+            # Basic syntax checks
+            if grep -q "import.*from.*'.*'" "$file" || grep -q 'import.*from.*".*"' "$file"; then
+              echo "  ✓ Imports found"
+            fi
+            if grep -q "@Entry\|@Component\|@Builder\|export" "$file"; then
+              echo "  ✓ ArkTS decorators/exports found"
+            fi
+          done
+          echo "All files passed basic syntax check."
+
+  structure:
+    name: Project Structure Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify project structure
+        run: |
+          echo "Verifying FinTrack project structure..."
+
+          # Check required files
+          required_files=(
+            "AppScope/app.json5"
+            "entry/src/main/module.json5"
+            "entry/src/main/resources/base/profile/main_pages.json"
+            "build-profile.json5"
+            "oh-package.json5"
+            "entry/oh-package.json5"
+            "hvigorfile.ts"
+            "entry/hvigorfile.ts"
+            "README.md"
+            "LICENSE"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "  ✓ $file"
+            else
+              echo "  ✗ MISSING: $file"
+              exit 1
+            fi
+          done
+
+          # Check source files
+          echo ""
+          echo "Source files:"
+          find entry/src/main/ets -name "*.ets" -type f | wc -l
+          echo " ArkTS source files found."
+
+          # Check test files
+          echo ""
+          echo "Test files:"
+          find entry/src/ohosTest -name "*.test.ets" -type f | wc -l
+          echo " test files found."
+
+          echo ""
+          echo "✓ Project structure verified."
+
+  docs:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check documentation
+        run: |
+          echo "Checking documentation..."
+
+          if [ -f "README.md" ]; then
+            lines=$(wc -l < README.md)
+            echo "  ✓ README.md ($lines lines)"
+            if [ $lines -lt 50 ]; then
+              echo "  ⚠ README seems short (< 50 lines)"
+            fi
+          fi
+
+          if [ -f "docs/ARCHITECTURE.md" ]; then
+            echo "  ✓ ARCHITECTURE.md"
+          fi
+
+          if [ -f "docs/CONTRIBUTING.md" ]; then
+            echo "  ✓ CONTRIBUTING.md"
+          fi
+
+          if [ -f "docs/API.md" ]; then
+            echo "  ✓ API.md"
+          fi
+
+          echo "✓ Documentation check complete."

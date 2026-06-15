@@ -1,0 +1,10 @@
+{
+  "layer": [
+    {
+      "src": "$media:app_icon",
+      "mask": {
+        "type": "circle"
+      }
+    }
+  ]
+}

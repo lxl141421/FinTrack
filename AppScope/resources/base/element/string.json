@@ -1,0 +1,8 @@
+{
+  "string": [
+    { "name": "app_name", "value": "FinTrack" },
+    { "name": "module_desc", "value": "FinTrack main module" },
+    { "name": "ability_desc", "value": "FinTrack main ability" },
+    { "name": "ability_label", "value": "FinTrack" }
+  ]
+}
