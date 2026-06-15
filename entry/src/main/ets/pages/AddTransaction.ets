@@ -7,7 +7,9 @@ import { DistributedService } from '../services/DistributedService'
 import { Constants } from '../constants/Constants'
 import { CurrencyUtils } from '../utils/CurrencyUtils'
 import { DateUtils } from '../utils/DateUtils'
-import { ThemeFont, ThemeRadius, ThemeSpacing } from '../theme/Theme'
+import { Validator, ValidationResult } from '../utils/Validator'
+import { ErrorHandler, ErrorType } from '../utils/ErrorHandler'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../theme/Theme'
 import { promptAction } from '@kit.ArkUI'
 
 @Entry
@@ -22,9 +24,13 @@ struct AddTransaction {
   @State categories: Category[] = []
   @State showDatePicker: boolean = false
   @State isSubmitting: boolean = false
+  @State amountError: string = ''
+  @State categoryError: string = ''
+  @State noteError: string = ''
 
   private storageService = StorageService.getInstance()
   private distributedService = DistributedService.getInstance()
+  private themeManager = ThemeManager.getInstance()
 
   aboutToAppear(): void {
     this.categories = Category.getDefaults().filter(c => c.type === this.selectedType)
@@ -35,37 +41,96 @@ struct AddTransaction {
     this.selectedCategory = ''
     this.selectedCategoryName = ''
     this.categories = Category.getDefaults().filter(c => c.type === type)
+    this.categoryError = ''
   }
 
-  private async submit(): Promise<void> {
-    if (this.amount === '' || Number(this.amount) <= 0) {
-      promptAction.showToast({ message: '请输入金额' })
+  /**
+   * 实时验证金额输入
+   */
+  private validateAmountField(value: string): void {
+    if (value === '') {
+      this.amountError = ''
       return
     }
-    if (this.selectedCategory === '') {
-      promptAction.showToast({ message: '请选择分类' })
+    const result = Validator.validateAmount(value)
+    this.amountError = result.valid ? '' : result.errorMessage
+  }
+
+  /**
+   * 验证备注输入
+   */
+  private validateNoteField(value: string): void {
+    const result = Validator.validateAndSanitizeNote(value)
+    this.noteError = result.valid ? '' : result.errorMessage
+  }
+
+  /**
+   * 验证所有字段并提交
+   */
+  private async submit(): Promise<void> {
+    // 清除之前的错误
+    this.amountError = ''
+    this.categoryError = ''
+    this.noteError = ''
+
+    // 验证金额
+    const amountResult = Validator.validateAmount(this.amount)
+    if (!amountResult.valid) {
+      this.amountError = amountResult.errorMessage
+      promptAction.showToast({ message: amountResult.errorMessage })
+      return
+    }
+
+    // 验证分类
+    const catResult = Validator.validateCategory(this.selectedCategory, this.selectedCategoryName)
+    if (!catResult.valid) {
+      this.categoryError = catResult.errorMessage
+      promptAction.showToast({ message: catResult.errorMessage })
+      return
+    }
+
+    // 验证备注
+    const noteResult = Validator.validateAndSanitizeNote(this.note)
+    if (!noteResult.valid) {
+      this.noteError = noteResult.errorMessage
+      promptAction.showToast({ message: noteResult.errorMessage })
+      return
+    }
+
+    // 验证日期
+    const dateResult = Validator.validateDateRange(this.selectedDate, Date.now())
+    if (!dateResult.valid) {
+      promptAction.showToast({ message: dateResult.errorMessage })
       return
     }
 
     this.isSubmitting = true
 
     try {
+      // 清理输入防注入
+      const sanitizedNote = Validator.sanitizeInput(this.note)
       const txn = Transaction.create(
         this.selectedType,
         Number(this.amount),
         this.selectedCategory,
         this.selectedCategoryName,
-        this.note,
+        sanitizedNote,
         this.selectedDate
       )
 
       await this.storageService.insertTransaction(txn)
-      await this.distributedService.putTransaction(txn)
+
+      // 分布式同步（失败不影响主流程）
+      try {
+        await this.distributedService.putTransaction(txn)
+      } catch (syncErr) {
+        ErrorHandler.handle(syncErr as Object, ErrorType.SYNC, '分布式同步')
+      }
 
       promptAction.showToast({ message: '记录成功！' })
       router.back()
     } catch (err) {
-      promptAction.showToast({ message: '保存失败，请重试' })
+      ErrorHandler.handleWithToast(err as Object, ErrorType.DATABASE, '保存交易记录')
     } finally {
       this.isSubmitting = false
     }
@@ -103,10 +168,19 @@ struct AddTransaction {
             .layoutWeight(1)
             .onChange((value: string) => {
               this.amount = value
+              this.validateAmountField(value)
             })
         }
         .width('100%')
         .alignItems(VerticalAlign.Bottom)
+
+        // 金额错误提示
+        if (this.amountError !== '') {
+          Text(this.amountError)
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FA2A2D')
+            .width('100%')
+        }
       }
       .width('100%')
       .padding(ThemeSpacing.xl)
@@ -115,12 +189,19 @@ struct AddTransaction {
 
       // 分类选择
       Column({ space: ThemeSpacing.md }) {
-        Text('选择分类')
-          .fontSize(ThemeFont.md)
-          .fontWeight(ThemeFont.weightMedium)
-          .fontColor('#181818')
-          .alignSelf(ItemAlign.Start)
-          .padding({ left: ThemeSpacing.lg })
+        Row() {
+          Text('选择分类')
+            .fontSize(ThemeFont.md)
+            .fontWeight(ThemeFont.weightMedium)
+            .fontColor('#181818')
+          if (this.categoryError !== '') {
+            Text(` (${this.categoryError})`)
+              .fontSize(ThemeFont.xs)
+              .fontColor('#FA2A2D')
+          }
+        }
+        .alignSelf(ItemAlign.Start)
+        .padding({ left: ThemeSpacing.lg })
 
         Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
           ForEach(this.categories, (cat: Category) => {
@@ -138,11 +219,13 @@ struct AddTransaction {
             .borderRadius(ThemeRadius.md)
             .border({
               width: this.selectedCategory === cat.id ? 2 : 1,
-              color: this.selectedCategory === cat.id ? '#007DFF' : '#E5E5E5'
+              color: this.selectedCategory === cat.id ? '#007DFF' :
+                (this.categoryError !== '' ? '#FA2A2D' : '#E5E5E5')
             })
             .onClick(() => {
               this.selectedCategory = cat.id
               this.selectedCategoryName = cat.name
+              this.categoryError = ''
             })
           })
         }
@@ -152,15 +235,26 @@ struct AddTransaction {
       .padding({ top: ThemeSpacing.lg })
 
       // 备注输入
-      TextInput({ placeholder: '添加备注...', text: this.note })
-        .width('100%')
-        .height(44)
-        .margin(ThemeSpacing.lg)
-        .borderRadius(ThemeRadius.sm)
-        .backgroundColor('#F8F9FA')
-        .onChange((value: string) => {
-          this.note = value
-        })
+      Column({ space: 2 }) {
+        TextInput({ placeholder: '添加备注...', text: this.note })
+          .width('100%')
+          .height(44)
+          .margin(ThemeSpacing.lg)
+          .borderRadius(ThemeRadius.sm)
+          .backgroundColor(this.themeManager.isDark ? '#2C2C2C' : '#F8F9FA')
+          .border({ width: this.noteError !== '' ? 1 : 0, color: '#FA2A2D' })
+          .onChange((value: string) => {
+            this.note = value
+            this.validateNoteField(value)
+          })
+
+        if (this.noteError !== '') {
+          Text(this.noteError)
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FA2A2D')
+            .padding({ left: ThemeSpacing.lg })
+        }
+      }
 
       // 日期选择
       Row() {
@@ -197,7 +291,7 @@ struct AddTransaction {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.themeManager.isDark ? '#121212' : '#FFFFFF')
   }
 
   @Builder

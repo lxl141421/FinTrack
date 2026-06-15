@@ -8,17 +8,97 @@ import { Budget } from '../models/Budget'
 import { Context } from '@kit.AbilityKit'
 
 /**
+ * 缓存条目
+ */
+class CacheEntry<T> {
+  data: T
+  timestamp: number
+  ttl: number  // 缓存有效期（毫秒）
+
+  constructor(data: T, ttl: number = 30000) {
+    this.data = data
+    this.timestamp = Date.now()
+    this.ttl = ttl
+  }
+
+  isExpired(): boolean {
+    return Date.now() - this.timestamp > this.ttl
+  }
+}
+/**
  * 本地存储服务
  * 封装 RDB (关系型数据库) + Preferences (轻量偏好存储)
+ * 内置 LRU 缓存层，减少重复查询
  */
 export class StorageService {
   private static instance: StorageService | null = null
   private rdbStore: relationalStore.RdbStore | null = null
   private prefStore: preferences.Preferences | null = null
   private context: Context | null = null
+  /** 查询缓存（key -> CacheEntry） */
+  private queryCache: Map<string, CacheEntry<Object>> = new Map()
+  /** 缓存最大条目数 */
+  private static readonly MAX_CACHE_SIZE: number = 50
+  /** 默认缓存 TTL：30秒 */
+  private static readonly DEFAULT_TTL: number = 30000
+
+  /**
+   * 生成缓存键
+   */
+  private buildCacheKey(prefix: string, ...args: Object[]): string {
+    return `${prefix}_${args.join('_')}`
+  }
+
+  /**
+   * 从缓存获取数据
+   */
+  private getFromCache<T>(key: string): T | null {
+    const entry = this.queryCache.get(key)
+    if (entry !== undefined && !entry.isExpired()) {
+      return entry.data as T
+    }
+    if (entry !== undefined) {
+      this.queryCache.delete(key)
+    }
+    return null
+  }
+
+  /**
+   * 写入缓存
+   */
+  private setCache<T>(key: string, data: T, ttl: number = StorageService.DEFAULT_TTL): void {
+    // 超过最大条目时清理过期缓存
+    if (this.queryCache.size >= StorageService.MAX_CACHE_SIZE) {
+      this.evictExpiredCache()
+    }
+    this.queryCache.set(key, new CacheEntry(data, ttl))
+  }
+
+  /**
+   * 清理过期缓存
+   */
+  private evictExpiredCache(): void {
+    const keysToDelete: string[] = []
+    this.queryCache.forEach((value: CacheEntry<Object>, key: string) => {
+      if (value.isExpired()) {
+        keysToDelete.push(key)
+      }
+    })
+    for (const key of keysToDelete) {
+      this.queryCache.delete(key)
+    }
+  }
+
+  /**
+   * 清空所有缓存
+   */
+  clearCache(): void {
+    this.queryCache.clear()
+    hilog.info(0x0000, 'FinTrack', 'Query cache cleared')
+  }
 
   private constructor() {}
-
+  /**
   /**
    * 获取单例
    */
@@ -202,6 +282,8 @@ export class StorageService {
 
     await this.rdbStore.insert(Constants.TABLE_TRANSACTION, bucket)
     hilog.info(0x0000, 'FinTrack', 'Transaction inserted: %{public}s', txn.id)
+    // 写入操作后清除缓存
+    this.clearCache()
   }
 
   /**
@@ -223,6 +305,15 @@ export class StorageService {
   ): Promise<Transaction[]> {
     if (this.rdbStore === null) return []
 
+    // 检查缓存（仅无关键词查询命中缓存）
+    if (keyword === '') {
+      const cacheKey = this.buildCacheKey('txn', type, startDate, endDate, category, limit)
+      const cached = this.getFromCache<Transaction[]>(cacheKey)
+      if (cached !== null) {
+        hilog.info(0x0000, 'FinTrack', 'Cache hit: %{public}s', cacheKey)
+        return cached
+      }
+    }
     let whereClauses: string[] = ['date >= ?', 'date <= ?']
     let args: relationalStore.ValueType[] = [startDate, endDate]
 
@@ -269,6 +360,11 @@ export class StorageService {
         transactions.push(txn)
       }
       resultSet.close()
+      // 写入缓存
+      if (keyword === '') {
+        const cacheKey = this.buildCacheKey('txn', type, startDate, endDate, category, limit)
+        this.setCache(cacheKey, transactions)
+      }
       return transactions
     } catch (err) {
       hilog.error(0x0000, 'FinTrack', 'Query transactions failed: %{public}s', JSON.stringify(err))

@@ -6,12 +6,12 @@ import { TransactionCard } from '../components/common/TransactionCard'
 import { LineChart } from '../components/charts/LineChart'
 import { PieChart } from '../components/charts/PieChart'
 import { Transaction } from '../models/Transaction'
-import { StorageService } from '../services/StorageService'
+import { TransactionViewModel, LoadingState } from '../viewmodel/TransactionViewModel'
 import { BudgetService } from '../services/BudgetService'
 import { Constants } from '../constants/Constants'
 import { DateUtils } from '../utils/DateUtils'
 import { CurrencyUtils } from '../utils/CurrencyUtils'
-import { ThemeFont, ThemeRadius, ThemeSpacing } from '../theme/Theme'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager, getLightColors, getDarkColors } from '../theme/Theme'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 
 @Entry
@@ -29,81 +29,121 @@ struct Index {
     ['#007DFF', '#00B578', '#FF8800', '#FA2A2D', '#9B59B6', '#3498DB',
      '#1ABC9C', '#F7CE46', '#E74C3C', '#2ECC71', '#34495E', '#95A5A6'][i % 12])
   @State isLoaded: boolean = false
+  @State loadingState: LoadingState = LoadingState.IDLE
+  @State errorMessage: string = ''
 
-  private storageService = StorageService.getInstance()
+  private viewModel: TransactionViewModel = new TransactionViewModel()
   private budgetService = new BudgetService()
+  private themeManager = ThemeManager.getInstance()
 
   aboutToAppear(): void {
     this.loadData()
   }
 
+  /**
+   * 页面显示时刷新数据（从其他页面返回时）
+   */
+  onShow(): void {
+    if (this.isLoaded) {
+      this.loadData()
+    }
+  }
+
   private async loadData(): Promise<void> {
+    this.loadingState = LoadingState.LOADING
+    this.errorMessage = ''
+
     try {
-      // 加载本月数据
-      const monthStart = DateUtils.getMonthStart()
-      const monthEnd = DateUtils.getMonthEnd()
+      // 使用 ViewModel 加载首页数据
+      await this.viewModel.loadDashboardData()
 
-      const incomeTxns = await this.storageService.queryTransactions(
-        Constants.TYPE_INCOME, monthStart, monthEnd
-      )
-      const expenseTxns = await this.storageService.queryTransactions(
-        Constants.TYPE_EXPENSE, monthStart, monthEnd
-      )
+      // 从 ViewModel 同步状态到本地
+      this.monthlyIncome = this.viewModel.monthlyIncome
+      this.monthlyExpense = this.viewModel.monthlyExpense
+      this.monthlyBalance = this.viewModel.monthlyBalance
+      this.totalAssets = this.viewModel.totalAssets
+      this.recentTransactions = this.viewModel.recentTransactions
+      this.expenseByCategory = this.viewModel.expenseByCategory
+      this.loadingState = this.viewModel.loadingState
+      this.errorMessage = this.viewModel.errorMessage
 
-      this.monthlyIncome = incomeTxns.reduce((sum, t) => sum + t.amount, 0)
-      this.monthlyExpense = expenseTxns.reduce((sum, t) => sum + t.amount, 0)
-      this.monthlyBalance = this.monthlyIncome - this.monthlyExpense
-      this.totalAssets = this.monthlyBalance // 简化：实际应从账户汇总
-
-      // 最近交易
-      const allTxns = await this.storageService.queryTransactions(-1, 0, Date.now(), '', '', 5)
-      this.recentTransactions = allTxns
-
-      // 每日支出趋势
-      this.dailyTrend = await this.budgetService.getDailyExpenseTrend()
-      this.trendLabels = Array.from({ length: this.dailyTrend.length }, (_, i) => (i + 1).toString())
-
-      // 分类支出
-      const categoryMap: Record<string, number> = {}
-      for (const txn of expenseTxns) {
-        const key = txn.categoryName
-        if (categoryMap[key] === undefined) {
-          categoryMap[key] = 0
-        }
-        categoryMap[key] += txn.amount
+      // 每日支出趋势（保留直接调用）
+      try {
+        this.dailyTrend = await this.budgetService.getDailyExpenseTrend()
+        this.trendLabels = Array.from({ length: this.dailyTrend.length }, (_, i) => (i + 1).toString())
+      } catch (trendErr) {
+        hilog.error(0x0000, 'FinTrack', 'Load trend failed: %{public}s', JSON.stringify(trendErr))
+        // 趋势图加载失败不影响主页
+        this.dailyTrend = []
       }
-      this.expenseByCategory = categoryMap
 
       this.isLoaded = true
     } catch (err) {
       hilog.error(0x0000, 'FinTrack', 'Load data failed: %{public}s', JSON.stringify(err))
+      this.errorMessage = '数据加载失败，请下拉刷新重试'
+      this.loadingState = LoadingState.ERROR
     }
   }
 
   build() {
     Navigation() {
-      Scroll() {
-        Column({ space: ThemeSpacing.lg }) {
-          // 顶部资产总览
-          this.buildHeader()
-
-          // 收支摘要卡片
-          this.buildSummaryCards()
-
-          // 资产趋势折线图
-          this.buildTrendChart()
-
-          // 支出分类饼图
-          this.buildCategoryPie()
-
-          // 最近交易
-          this.buildRecentTransactions()
+      // 使用条件渲染显示加载/错误/成功状态
+      if (this.loadingState === LoadingState.LOADING && !this.isLoaded) {
+        Column() {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+          Text('加载中...')
+            .fontSize(ThemeFont.md)
+            .fontColor(this.themeManager.isDark ? '#999' : '#666')
+            .margin({ top: ThemeSpacing.md })
         }
-        .padding(ThemeSpacing.lg)
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.loadingState === LoadingState.ERROR && !this.isLoaded) {
+        Column({ space: ThemeSpacing.md }) {
+          Text('😵')
+            .fontSize(64)
+          Text(this.errorMessage || '加载失败')
+            .fontSize(ThemeFont.md)
+            .fontColor('#999')
+          Button('点击重试')
+            .fontSize(ThemeFont.md)
+            .height(40)
+            .borderRadius(ThemeRadius.full)
+            .backgroundColor('#007DFF')
+            .onClick(() => {
+              this.loadData()
+            })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else {
+        Scroll() {
+          Column({ space: ThemeSpacing.lg }) {
+            // 顶部资产总览
+            this.buildHeader()
+
+            // 收支摘要卡片
+            this.buildSummaryCards()
+
+            // 资产趋势折线图
+            this.buildTrendChart()
+
+            // 支出分类饼图
+            this.buildCategoryPie()
+
+            // 最近交易
+            this.buildRecentTransactions()
+          }
+          .padding(ThemeSpacing.lg)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor(this.themeManager.isDark ? '#121212' : '#F5F5F5')
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor('#F5F5F5')
     }
     .title('FinTrack')
     .titleMode(NavigationTitleMode.Mini)
@@ -188,7 +228,7 @@ struct Index {
         Text('本月支出趋势')
           .fontSize(ThemeFont.lg)
           .fontWeight(ThemeFont.weightMedium)
-          .fontColor('#181818')
+          .fontColor(this.themeManager.isDark ? '#E0E0E0' : '#181818')
         Blank()
       }
       .width('100%')
@@ -206,9 +246,9 @@ struct Index {
     }
     .width('100%')
     .padding(ThemeSpacing.lg)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.themeManager.isDark ? '#1E1E1E' : '#FFFFFF')
     .borderRadius(ThemeRadius.md)
-    .shadow({ radius: 4, color: '#00000008', offsetX: 0, offsetY: 2 })
+    .shadow({ radius: 4, color: this.themeManager.isDark ? '#00000030' : '#00000008', offsetX: 0, offsetY: 2 })
   }
 
   @Builder
@@ -218,7 +258,7 @@ struct Index {
         Text('支出分类')
           .fontSize(ThemeFont.lg)
           .fontWeight(ThemeFont.weightMedium)
-          .fontColor('#181818')
+          .fontColor(this.themeManager.isDark ? '#E0E0E0' : '#181818')
         Blank()
       }
       .width('100%')
@@ -241,9 +281,9 @@ struct Index {
     }
     .width('100%')
     .padding(ThemeSpacing.lg)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.themeManager.isDark ? '#1E1E1E' : '#FFFFFF')
     .borderRadius(ThemeRadius.md)
-    .shadow({ radius: 4, color: '#00000008', offsetX: 0, offsetY: 2 })
+    .shadow({ radius: 4, color: this.themeManager.isDark ? '#00000030' : '#00000008', offsetX: 0, offsetY: 2 })
   }
 
   @Builder
@@ -253,7 +293,7 @@ struct Index {
         Text('最近交易')
           .fontSize(ThemeFont.lg)
           .fontWeight(ThemeFont.weightMedium)
-          .fontColor('#181818')
+          .fontColor(this.themeManager.isDark ? '#E0E0E0' : '#181818')
         Blank()
         Text('查看全部')
           .fontSize(ThemeFont.sm)
