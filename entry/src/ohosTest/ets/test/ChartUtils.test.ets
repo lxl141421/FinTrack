@@ -81,5 +81,41 @@ export default function ChartUtilsTest() {
       expect(result['餐饮']).assertEqual(300)
       expect(result['交通']).assertEqual(50)
     })
+
+    it('should_calculate_pie_percent_correctly', 0, () => {
+      const slice1 = new PieSlice('餐饮', 600, '#007DFF', 1000)
+      const slice2 = new PieSlice('交通', 400, '#00B578', 1000)
+
+      expect(slice1.percent).assertEqual(0.6)
+      expect(slice2.percent).assertEqual(0.4)
+    })
+
+    it('should_handle_pie_percent_zero_total', 0, () => {
+      const slice = new PieSlice('空', 0, '#007DFF', 0)
+      expect(slice.percent).assertEqual(0)
+    })
+
+    it('should_sort_pie_slices_by_percent', 0, () => {
+      const data: Record<string, number> = { 'A': 100, 'B': 300, 'C': 200 }
+      const colors = ['#007DFF', '#00B578', '#FF8800']
+      const slices = ChartUtils.calculatePieSlices(data, colors)
+
+      expect(slices[0].label).assertEqual('B')
+      expect(slices[0].percent).assertEqual(0.5)
+      expect(slices[1].label).assertEqual('C')
+      expect(slices[2].label).assertEqual('A')
+    })
+
+    it('should_calculate_moving_average_window_5', 0, () => {
+      const data = [10, 20, 30, 40, 50, 60]
+      const ma5 = ChartUtils.calculateMA(data, 5)
+
+      expect(isNaN(ma5[0])).assertTrue()
+      expect(isNaN(ma5[3])).assertTrue()
+      // MA5 of [10,20,30,40,50] = 30
+      expect(ma5[4]).assertEqual(30)
+      // MA5 of [20,30,40,50,60] = 40
+      expect(ma5[5]).assertEqual(40)
+    })
   })
 }

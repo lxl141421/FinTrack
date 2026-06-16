@@ -65,7 +65,8 @@ export class StorageService {
     this.queryCache.forEach((value: CacheEntry, key: string) => {
       if (value.isExpired()) keysToDelete.push(key)
     })
-    for (const key of keysToDelete) {
+    for (let _idx1 = 0; _idx1 < keysToDelete.length; _idx1++) {
+      const key = keysToDelete[_idx1]
       this.queryCache.delete(key)
     }
   }

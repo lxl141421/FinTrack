@@ -40,13 +40,15 @@ class TransactionDataSource implements IDataSource {
   }
 
   notifyDataReload(): void {
-    for (const listener of this.listeners) {
+    for (let _idx1 = 0; _idx1 < this.listeners.length; _idx1++) {
+      const listener = this.listeners[_idx1]
       listener.onDataReloaded()
     }
   }
 
   notifyDataAdd(index: number): void {
-    for (const listener of this.listeners) {
+    for (let _idx2 = 0; _idx2 < this.listeners.length; _idx2++) {
+      const listener = this.listeners[_idx2]
       listener.onDataAdd(index)
     }
   }

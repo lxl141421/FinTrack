@@ -181,19 +181,17 @@ export class PerformanceMonitor {
    */
   getSummary(): PerformanceSummary {
     const pageLoads: Record<string, number> = {}
-    for (const entry of this.pageLoadTimes.entries()) {
-      const key = entry[0]
-      const value = entry[1]
+    this.pageLoadTimes.forEach((value: number, key: string) => {
       if (key.startsWith('duration_')) {
         const pageName = key.replace('duration_', '')
         pageLoads[pageName] = value
       }
-    }
+    })
 
     const apiSummary: Record<string, number> = {}
-    for (const entry of this.apiTimes.entries()) {
-      apiSummary[entry[0]] = this.getApiAvgTime(entry[0])
-    }
+    this.apiTimes.forEach((value: number[], key: string) => {
+      apiSummary[key] = this.getApiAvgTime(key)
+    })
 
     return {
       pageLoads: pageLoads,

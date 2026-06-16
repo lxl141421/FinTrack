@@ -90,7 +90,8 @@ export class TransactionViewModel {
       this.recentTransactions = allTxns
 
       const categoryMap: Record<string, number> = {}
-      for (const txn of expenseTxns) {
+      for (let _idx1 = 0; _idx1 < expenseTxns.length; _idx1++) {
+      const txn = expenseTxns[_idx1]
         const key = txn.categoryName
         if (categoryMap[key] === undefined) {
           categoryMap[key] = 0
@@ -196,7 +197,8 @@ export class TransactionViewModel {
     this.monthlyIncome = 0
     this.monthlyExpense = 0
 
-    for (const txn of txns) {
+    for (let _idx2 = 0; _idx2 < txns.length; _idx2++) {
+      const txn = txns[_idx2]
       if (txn.type === Constants.TYPE_INCOME) {
         this.monthlyIncome += txn.amount
       } else if (txn.type === Constants.TYPE_EXPENSE) {

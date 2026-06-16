@@ -1,4 +1,3 @@
-
 import { Constants } from '../constants/Constants'
 
 /**
@@ -71,13 +70,15 @@ export class Category {
     ]
 
     let sortIdx = 0
-    for (const d of expenseData) {
+    for (let _idx1 = 0; _idx1 < expenseData.length; _idx1++) {
+      const d = expenseData[_idx1]
       const cat = Category.create(d[0], d[1], d[2], Constants.TYPE_EXPENSE)
       cat.sortOrder = sortIdx++
       cat.isDefault = true
       defaults.push(cat)
     }
-    for (const d of incomeData) {
+    for (let _idx2 = 0; _idx2 < incomeData.length; _idx2++) {
+      const d = incomeData[_idx2]
       const cat = Category.create(d[0], d[1], d[2], Constants.TYPE_INCOME)
       cat.sortOrder = sortIdx++
       cat.isDefault = true

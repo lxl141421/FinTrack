@@ -1,4 +1,3 @@
-
 import { ChartDataPoint, ChartUtils } from '../../utils/ChartUtils'
 import { ThemeFont, ThemeSpacing } from '../../theme/Theme'
 
@@ -112,7 +111,8 @@ export struct LineChart {
   }
 
   private drawDots(ctx: CanvasRenderingContext2D): void {
-    for (const point of this.points) {
+    for (let _idx1 = 0; _idx1 < this.points.length; _idx1++) {
+      const point = this.points[_idx1]
       ctx.beginPath()
       ctx.arc(point.x, point.y, 3, 0, Math.PI * 2)
       ctx.fillStyle = '#FFFFFF'

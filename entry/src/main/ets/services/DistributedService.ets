@@ -95,7 +95,8 @@ export class DistributedService {
       const entries = await this.kvStore.getEntries('')
       const transactions: Transaction[] = []
 
-      for (const entry of entries) {
+      for (let _idx1 = 0; _idx1 < entries.length; _idx1++) {
+      const entry = entries[_idx1]
         try {
           if (typeof entry.value === 'string') {
             const txn = Transaction.fromJson(entry.value)

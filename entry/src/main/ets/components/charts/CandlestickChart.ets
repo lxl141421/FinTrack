@@ -1,4 +1,3 @@
-
 import { KLineData, ChartUtils } from '../../utils/ChartUtils'
 import { Constants } from '../../constants/Constants'
 import { ThemeRadius, ThemeFont, ThemeSpacing } from '../../theme/Theme'
@@ -58,7 +57,8 @@ export struct CandlestickChart {
   private getPriceRange(): PriceRange {
     let min = Infinity
     let max = -Infinity
-    for (const d of this.data) {
+    for (let _idx1 = 0; _idx1 < this.data.length; _idx1++) {
+      const d = this.data[_idx1]
       if (d.low < min) min = d.low
       if (d.high > max) max = d.high
     }
@@ -75,7 +75,8 @@ export struct CandlestickChart {
    */
   private getMaxVolume(): number {
     let max = 0
-    for (const d of this.data) {
+    for (let _idx2 = 0; _idx2 < this.data.length; _idx2++) {
+      const d = this.data[_idx2]
       if (d.volume > max) max = d.volume
     }
     return max || 1

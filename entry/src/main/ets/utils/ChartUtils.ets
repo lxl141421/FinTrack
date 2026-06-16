@@ -132,8 +132,7 @@ export class ChartUtils {
 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i]
-      const slice = new PieSlice(key, data[key], colors[i % colors.length])
-      slice.percent = data[key] / total
+      const slice = new PieSlice(key, data[key], colors[i % colors.length], total)
       slices.push(slice)
     }
 

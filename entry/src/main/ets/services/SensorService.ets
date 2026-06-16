@@ -55,12 +55,14 @@ export class SensorService {
 
         if (isDark && !this.lastLightState) {
           this.lastLightState = true
-          for (const cb of this.lightCallbacks) {
+          for (let _idx1 = 0; _idx1 < this.lightCallbacks.length; _idx1++) {
+      const cb = this.lightCallbacks[_idx1]
             cb(this.ambientLux, true)
           }
         } else if (isLight && this.lastLightState) {
           this.lastLightState = false
-          for (const cb of this.lightCallbacks) {
+          for (let _idx2 = 0; _idx2 < this.lightCallbacks.length; _idx2++) {
+      const cb = this.lightCallbacks[_idx2]
             cb(this.ambientLux, false)
           }
         }
@@ -89,7 +91,8 @@ export class SensorService {
         const blocked = data.distance === 0 || data.distance < 5
         if (blocked !== this.isProximityBlocked) {
           this.isProximityBlocked = blocked
-          for (const cb of this.proximityCallbacks) {
+          for (let _idx3 = 0; _idx3 < this.proximityCallbacks.length; _idx3++) {
+      const cb = this.proximityCallbacks[_idx3]
             cb(blocked)
           }
         }
@@ -124,7 +127,8 @@ export class SensorService {
         }
         if (newState !== this.gripState && newState !== GripState.UNKNOWN) {
           this.gripState = newState
-          for (const cb of this.gripCallbacks) {
+          for (let _idx4 = 0; _idx4 < this.gripCallbacks.length; _idx4++) {
+      const cb = this.gripCallbacks[_idx4]
             cb(newState)
           }
         }
