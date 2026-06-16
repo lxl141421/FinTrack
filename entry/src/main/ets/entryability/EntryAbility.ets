@@ -6,6 +6,7 @@ import { NotificationService } from '../services/NotificationService'
 import { PerformanceMonitor } from '../utils/PerformanceMonitor'
 import { ThemeManager, ThemeMode } from '../theme/Theme'
 import { StorageService } from '../services/StorageService'
+import { CrashReporter } from '../services/CrashReporter'
 import { Constants } from '../constants/Constants'
 
 export default class EntryAbility extends UIAbility {
@@ -14,6 +15,7 @@ export default class EntryAbility extends UIAbility {
   private perfMonitor = PerformanceMonitor.getInstance()
   private themeManager = ThemeManager.getInstance()
   private storageService = StorageService.getInstance()
+  private crashReporter = CrashReporter.getInstance()
 
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     this.perfMonitor.markPageStart('AppLaunch')
@@ -29,7 +31,11 @@ export default class EntryAbility extends UIAbility {
   async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     hilog.info(0x0000, 'FinTrack', 'Ability onWindowStageCreate')
 
-    // 必须在加载页面前完成初始化，否则 Index 查询时 rdbStore 为 null
+    // 初始化崩溃上报（最先初始化，确保能捕获后续所有异常）
+    await this.crashReporter.init(this.context)
+    hilog.info(0x0000, 'FinTrack', 'CrashReporter initialized')
+
+    // 初始化存储
     await this.storageService.init(this.context)
     hilog.info(0x0000, 'FinTrack', 'StorageService initialized')
 
@@ -38,6 +44,10 @@ export default class EntryAbility extends UIAbility {
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(0x0000, 'FinTrack', 'Failed to load content')
+        this.crashReporter.report(
+          new Error(`loadContent failed: ${err.code}`),
+          'EntryAbility'
+        )
         return
       }
       hilog.info(0x0000, 'FinTrack', 'Succeeded in loading content.')
@@ -86,6 +96,7 @@ export default class EntryAbility extends UIAbility {
       hilog.info(0x0000, 'FinTrack', 'Sensor services initialized')
     } catch (err) {
       hilog.error(0x0000, 'FinTrack', 'Failed to init sensors')
+      this.crashReporter.report(err as Error, 'initSensors')
     }
   }
 }

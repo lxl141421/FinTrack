@@ -15,6 +15,7 @@ export class Transaction {
   accountId: string = 'default'
   toAccountId: string = ''   // 转账目标账户
   tags: string[] = []
+  version: number = 1  // 版本号，用于分布式冲突检测
   createdAt: number = Date.now()
   updatedAt: number = Date.now()
 
@@ -64,6 +65,7 @@ export class Transaction {
       accountId: this.accountId,
       toAccountId: this.toAccountId,
       tags: this.tags,
+      version: this.version,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     })
@@ -85,6 +87,7 @@ export class Transaction {
     txn.accountId = obj['accountId'] as string ?? 'default'
     txn.toAccountId = obj['toAccountId'] as string ?? ''
     txn.tags = obj['tags'] as string[] ?? []
+    txn.version = obj['version'] as number ?? 1
     txn.createdAt = obj['createdAt'] as number ?? Date.now()
     txn.updatedAt = obj['updatedAt'] as number ?? Date.now()
     return txn
