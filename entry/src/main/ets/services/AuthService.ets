@@ -1,11 +1,16 @@
-
 import { userAuth } from '@kit.UserAuthenticationKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 
 /**
- * 生物认证服务
- * 封装指纹/面部识别认证
+ * 生物认证服务 - 支持面部+指纹混合认证
  */
+
+export interface AuthResult {
+  success: boolean
+  method?: string
+  error?: string
+}
+
 export class AuthService {
   private static instance: AuthService | null = null
 
@@ -23,27 +28,61 @@ export class AuthService {
    */
   async isBiometricAvailable(): Promise<boolean> {
     try {
-      const result = await userAuth.getAvailableStatus(
-        userAuth.AuthType.FINGERPRINT,
+      await userAuth.getAvailableStatus(
+        userAuth.UserAuthType.FINGERPRINT,
         userAuth.AuthTrustLevel.ATL1
       )
-      return result === 0
+      return true
     } catch (err) {
-      hilog.warn(0x0000, 'FinTrack', 'Biometric check failed: %{public}s', JSON.stringify(err))
+      hilog.warn(0x0000, 'FinTrack', 'Biometric check failed')
       return false
     }
   }
 
   /**
-   * 执行生物认证
-   * @param reason 认证原因提示
-   * @returns 是否认证成功
+   * 获取支持的认证类型
    */
-  async authenticate(reason: string = '验证身份以访问财务数据'): Promise<boolean> {
+  async getAvailableAuthTypes(): Promise<number[]> {
+    const types: number[] = []
+
     try {
+      await userAuth.getAvailableStatus(
+        userAuth.UserAuthType.FINGERPRINT,
+        userAuth.AuthTrustLevel.ATL1
+      )
+      types.push(1) // FINGERPRINT
+    } catch {
+      // not available
+    }
+
+    try {
+      await userAuth.getAvailableStatus(
+        userAuth.UserAuthType.FACE,
+        userAuth.AuthTrustLevel.ATL1
+      )
+      types.push(4) // FACE
+    } catch {
+      // not available
+    }
+
+    return types
+  }
+
+  /**
+   * 执行混合生物认证
+   */
+  async authenticateHybrid(
+    reason: string = '验证身份以访问财务数据'
+  ): Promise<AuthResult> {
+    try {
+      const availableTypes = await this.getAvailableAuthTypes()
+      if (availableTypes.length === 0) {
+        return { success: false, error: '设备不支持生物认证' }
+      }
+
       const authParam: userAuth.AuthParam = {
         challenge: new Uint8Array([0]),
-        authType: [userAuth.AuthType.FINGERPRINT],
+        authType: [userAuth.UserAuthType.FINGERPRINT, userAuth.UserAuthType.FACE],
         authTrustLevel: userAuth.AuthTrustLevel.ATL1
       }
 
@@ -54,36 +93,43 @@ export class AuthService {
       const userAuthInstance = userAuth.getUserAuthInstance(authParam, widgetParam)
       userAuthInstance.start()
 
-      return new Promise<boolean>((resolve) => {
+      return new Promise<AuthResult>((resolve) => {
         userAuthInstance.on('result', {
           onResult: (result: userAuth.UserAuthResult) => {
             if (result.result === userAuth.UserAuthResultCode.SUCCESS) {
-              hilog.info(0x0000, 'FinTrack', 'Biometric auth succeeded')
-              resolve(true)
+              resolve({ success: true, method: '生物认证' })
             } else {
-              hilog.warn(0x0000, 'FinTrack', 'Biometric auth failed: %{public}d', result.result)
-              resolve(false)
+              resolve({ success: false, error: `认证失败 (${result.result})` })
             }
           }
         })
       })
     } catch (err) {
-      hilog.error(0x0000, 'FinTrack', 'Biometric auth error: %{public}s', JSON.stringify(err))
-      return false
+      hilog.error(0x0000, 'FinTrack', 'Hybrid auth error')
+      return { success: false, error: '认证过程发生错误' }
     }
   }
 
   /**
-   * 取消进行中的认证
+   * 执行生物认证（兼容旧接口）
    */
+  async authenticate(reason: string = '验证身份以访问财务数据'): Promise<boolean> {
+    const result = await this.authenticateHybrid(reason)
+    return result.success
+  }
+
   cancel(): void {
     try {
       userAuth.getUserAuthInstance(
-        { challenge: new Uint8Array([0]), authType: [userAuth.AuthType.FINGERPRINT], authTrustLevel: userAuth.AuthTrustLevel.ATL1 },
+        {
+          challenge: new Uint8Array([0]),
+          authType: [userAuth.UserAuthType.FINGERPRINT],
+          authTrustLevel: userAuth.AuthTrustLevel.ATL1
+        },
         { title: '' }
       ).cancel()
     } catch {
-      // Ignore cancel errors
+      // Ignore
     }
   }
 }

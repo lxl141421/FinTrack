@@ -1,33 +1,152 @@
 {
   "string": [
-    { "name": "module_desc", "value": "FinTrack entry module" },
-    { "name": "ability_desc", "value": "FinTrack main ability" },
-    { "name": "ability_label", "value": "FinTrack" },
-    { "name": "tab_home", "value": "首页" },
-    { "name": "tab_transactions", "value": "账单" },
-    { "name": "tab_budget", "value": "预算" },
-    { "name": "tab_settings", "value": "设置" },
-    { "name": "add_transaction", "value": "记一笔" },
-    { "name": "total_assets", "value": "总资产" },
-    { "name": "monthly_income", "value": "本月收入" },
-    { "name": "monthly_expense", "value": "本月支出" },
-    { "name": "monthly_balance", "value": "本月结余" },
-    { "name": "asset_trend", "value": "资产趋势" },
-    { "name": "expense_category", "value": "支出分类" },
-    { "name": "recent_transactions", "value": "最近交易" },
-    { "name": "search_placeholder", "value": "搜索交易记录..." },
-    { "name": "all_categories", "value": "全部分类" },
-    { "name": "income", "value": "收入" },
-    { "name": "expense", "value": "支出" },
-    { "name": "transfer", "value": "转账" },
-    { "name": "budget_overview", "value": "预算概览" },
-    { "name": "budget_remaining", "value": "剩余" },
-    { "name": "budget_exceeded", "value": "已超支" },
-    { "name": "settings_theme", "value": "主题模式" },
-    { "name": "settings_biometric", "value": "生物认证" },
-    { "name": "settings_sync", "value": "分布式同步" },
-    { "name": "settings_about", "value": "关于" },
-    { "name": "settings_export", "value": "导出数据" },
-    { "name": "currency_format", "value": "货币格式" }
+    {
+      "name": "module_desc",
+      "value": "FinTrack entry module"
+    },
+    {
+      "name": "ability_desc",
+      "value": "FinTrack main ability"
+    },
+    {
+      "name": "ability_label",
+      "value": "FinTrack"
+    },
+    {
+      "name": "widget_desc",
+      "value": "FinTrack finance widget"
+    },
+    {
+      "name": "widget_label",
+      "value": "FinTrack Widget"
+    },
+    {
+      "name": "widget_small_name",
+      "value": "收支概览"
+    },
+    {
+      "name": "widget_small_desc",
+      "value": "本月收入、支出、结余一览"
+    },
+    {
+      "name": "widget_medium_name",
+      "value": "收支详情"
+    },
+    {
+      "name": "widget_medium_desc",
+      "value": "本月收支概览与最近交易"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_transactions",
+      "value": "账单"
+    },
+    {
+      "name": "tab_budget",
+      "value": "预算"
+    },
+    {
+      "name": "tab_settings",
+      "value": "设置"
+    },
+    {
+      "name": "add_transaction",
+      "value": "记一笔"
+    },
+    {
+      "name": "total_assets",
+      "value": "总资产"
+    },
+    {
+      "name": "monthly_income",
+      "value": "本月收入"
+    },
+    {
+      "name": "monthly_expense",
+      "value": "本月支出"
+    },
+    {
+      "name": "monthly_balance",
+      "value": "本月结余"
+    },
+    {
+      "name": "asset_trend",
+      "value": "资产趋势"
+    },
+    {
+      "name": "expense_category",
+      "value": "支出分类"
+    },
+    {
+      "name": "recent_transactions",
+      "value": "最近交易"
+    },
+    {
+      "name": "search_placeholder",
+      "value": "搜索交易记录..."
+    },
+    {
+      "name": "all_categories",
+      "value": "全部分类"
+    },
+    {
+      "name": "income",
+      "value": "收入"
+    },
+    {
+      "name": "expense",
+      "value": "支出"
+    },
+    {
+      "name": "transfer",
+      "value": "转账"
+    },
+    {
+      "name": "budget_overview",
+      "value": "预算概览"
+    },
+    {
+      "name": "budget_remaining",
+      "value": "剩余"
+    },
+    {
+      "name": "budget_exceeded",
+      "value": "已超支"
+    },
+    {
+      "name": "settings_theme",
+      "value": "主题模式"
+    },
+    {
+      "name": "settings_biometric",
+      "value": "生物认证"
+    },
+    {
+      "name": "settings_sync",
+      "value": "分布式同步"
+    },
+    {
+      "name": "settings_about",
+      "value": "关于"
+    },
+    {
+      "name": "settings_export",
+      "value": "导出数据"
+    },
+    {
+      "name": "currency_format",
+      "value": "货币格式"
+    },
+    {
+      "name": "permission_distributed_reason",
+      "value": "用于多设备间同步财务数据"
+    },
+    {
+      "name": "permission_biometric_reason",
+      "value": "用于生物认证保护财务数据安全"
+    }
   ]
 }

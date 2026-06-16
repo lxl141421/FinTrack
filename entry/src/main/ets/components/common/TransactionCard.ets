@@ -1,19 +1,22 @@
-
 import { Transaction } from '../../models/Transaction'
 import { CurrencyUtils } from '../../utils/CurrencyUtils'
 import { DateUtils } from '../../utils/DateUtils'
 import { Constants } from '../../constants/Constants'
-import { ThemeFont, ThemeRadius, ThemeSpacing } from '../../theme/Theme'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../../theme/Theme'
 
 /**
  * 交易记录卡片组件
  * 展示单条交易记录，包含分类图标、金额、时间、备注
+ * 支持隐私模式和深色主题
  */
 @Component
 export struct TransactionCard {
   @Prop transaction: Transaction = new Transaction()
   @Prop showDate: boolean = true
+  @Prop privacyMode: boolean = false
   onDelete: (id: string) => void = () => {}
+
+  private themeManager = ThemeManager.getInstance()
 
   build() {
     Row() {
@@ -32,7 +35,7 @@ export struct TransactionCard {
           Text(this.transaction.categoryName)
             .fontSize(ThemeFont.md)
             .fontWeight(ThemeFont.weightMedium)
-            .fontColor('#181818')
+            .fontColor(this.themeManager.isDark ? '#E0E0E0' : '#181818')
 
           if (this.transaction.note !== '') {
             Text(this.transaction.note)
@@ -59,19 +62,19 @@ export struct TransactionCard {
       .margin({ left: ThemeSpacing.md })
       .alignItems(HorizontalAlign.Start)
 
-      // 金额
-      Text(this.getFormattedAmount())
+      // 金额（隐私模式下隐藏）
+      Text(this.privacyMode ? '****' : this.getFormattedAmount())
         .fontSize(ThemeFont.lg)
         .fontWeight(ThemeFont.weightBold)
         .fontColor(this.transaction.isIncome() ? '#00B578' : '#FA2A2D')
     }
     .width('100%')
     .padding(ThemeSpacing.lg)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.themeManager.isDark ? '#1E1E1E' : '#FFFFFF')
     .borderRadius(ThemeRadius.md)
     .shadow({
       radius: 4,
-      color: '#00000008',
+      color: this.themeManager.isDark ? '#00000030' : '#00000008',
       offsetX: 0,
       offsetY: 2
     })

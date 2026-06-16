@@ -65,14 +65,14 @@ export class Validator {
       return ValidationResult.fail('金额必须大于零')
     }
 
-    if (amount > this.MAX_AMOUNT) {
-      return ValidationResult.fail(`金额不能超过 ${this.MAX_AMOUNT}`)
+    if (amount > Validator.MAX_AMOUNT) {
+      return ValidationResult.fail(`金额不能超过 ${Validator.MAX_AMOUNT}`)
     }
 
     // 检查小数位数
     const dotIndex = trimmed.indexOf('.')
-    if (dotIndex >= 0 && trimmed.length - dotIndex - 1 > this.MAX_DECIMAL_PLACES) {
-      return ValidationResult.fail(`金额最多保留 ${this.MAX_DECIMAL_PLACES} 位小数`)
+    if (dotIndex >= 0 && trimmed.length - dotIndex - 1 > Validator.MAX_DECIMAL_PLACES) {
+      return ValidationResult.fail(`金额最多保留 ${Validator.MAX_DECIMAL_PLACES} 位小数`)
     }
 
     return ValidationResult.success()
@@ -90,8 +90,8 @@ export class Validator {
       return ValidationResult.fail('分类名称不能为空')
     }
 
-    if (categoryName.length > this.MAX_CATEGORY_NAME_LENGTH) {
-      return ValidationResult.fail(`分类名称不能超过 ${this.MAX_CATEGORY_NAME_LENGTH} 个字符`)
+    if (categoryName.length > Validator.MAX_CATEGORY_NAME_LENGTH) {
+      return ValidationResult.fail(`分类名称不能超过 ${Validator.MAX_CATEGORY_NAME_LENGTH} 个字符`)
     }
 
     return ValidationResult.success()
@@ -134,8 +134,8 @@ export class Validator {
       return ValidationResult.success()
     }
 
-    if (note.length > this.MAX_NOTE_LENGTH) {
-      return ValidationResult.fail(`备注不能超过 ${this.MAX_NOTE_LENGTH} 个字符`)
+    if (note.length > Validator.MAX_NOTE_LENGTH) {
+      return ValidationResult.fail(`备注不能超过 ${Validator.MAX_NOTE_LENGTH} 个字符`)
     }
 
     return ValidationResult.success()
@@ -174,7 +174,7 @@ export class Validator {
    * 验证预算金额
    */
   static validateBudgetAmount(amountStr: string): ValidationResult {
-    const result = this.validateAmount(amountStr)
+    const result = Validator.validateAmount(amountStr)
     if (!result.valid) {
       return result
     }

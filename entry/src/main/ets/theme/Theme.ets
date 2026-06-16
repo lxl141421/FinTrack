@@ -7,11 +7,13 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
 
 /**
  * 主题模式枚举
+ * 新增 AUTO_SENSOR 模式：通过环境光传感器自动切换深色/浅色主题
  */
 export enum ThemeMode {
   LIGHT = 0,
   DARK = 1,
-  SYSTEM = 2
+  SYSTEM = 2,
+  AUTO_SENSOR = 3  // 根据环境光传感器自动切换（鸿蒙6新特性）
 }
 
 /**
@@ -59,6 +61,12 @@ export class ThemeManager {
   @Trace mode: ThemeMode = ThemeMode.LIGHT
   /** 当前是否为暗色模式 */
   @Trace isDark: boolean = false
+  /** 当前环境光强度 (lux) */
+  @Trace ambientLux: number = 0
+  /** 隐私模式（距离传感器触发时隐藏金额） */
+  @Trace privacyMode: boolean = false
+  /** 握持状态 (0=未知, 1=左手, 2=右手, 3=双手) */
+  @Trace gripState: number = 0
 
   static getInstance(): ThemeManager {
     if (ThemeManager._instance === null) {
@@ -77,8 +85,47 @@ export class ThemeManager {
     } else if (mode === ThemeMode.LIGHT) {
       this.isDark = false
     }
-    // SYSTEM 模式在组件层通过 systemColorMode 判断
+    // AUTO_SENSOR 模式由传感器回调驱动，不在这里设置 isDark
     hilog.info(0x0000, 'FinTrack', 'Theme changed to: %{public}s', ThemeMode[mode])
+  }
+
+  /**
+   * 环境光传感器回调
+   * 当 ThemeMode 为 AUTO_SENSOR 时自动切换深色/浅色
+   */
+  onAmbientLightChange(lux: number, isDarkEnv: boolean): void {
+    this.ambientLux = lux
+    if (this.mode === ThemeMode.AUTO_SENSOR) {
+      this.isDark = isDarkEnv
+      hilog.info(0x0000, 'FinTrack', 'Auto theme: lux=%{public}f, dark=%{public}s',
+        lux, isDarkEnv ? 'true' : 'false')
+    }
+  }
+
+  /**
+   * 更新隐私模式状态
+   */
+  setPrivacyMode(enabled: boolean): void {
+    this.privacyMode = enabled
+    hilog.info(0x0000, 'FinTrack', 'Privacy mode: %{public}s', enabled ? 'ON' : 'OFF')
+  }
+
+  /**
+   * 更新握持状态
+   */
+  setGripState(state: number): void {
+    this.gripState = state
+    hilog.info(0x0000, 'FinTrack', 'Grip state: %{public}d', state)
+  }
+
+  /**
+   * 根据握持状态获取操作按钮偏移量
+   * 单手握持时将按钮移到对应侧，方便拇指触及
+   */
+  getActionButtonOffset(): number {
+    if (this.gripState === 1) return -60  // 左手握持，按钮左移
+    if (this.gripState === 2) return 60   // 右手握持，按钮右移
+    return 0                               // 双手/未知，居中
   }
 
   /**

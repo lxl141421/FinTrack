@@ -1,10 +1,11 @@
 
 import { CurrencyUtils } from '../../utils/CurrencyUtils'
-import { ThemeFont, ThemeRadius, ThemeSpacing } from '../../theme/Theme'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../../theme/Theme'
 
 /**
  * 数据摘要卡片组件
  * 展示一个指标（标题 + 数值 + 可选副标题）
+ * 支持隐私模式：遮挡时隐藏金额
  */
 @Component
 export struct SummaryCard {
@@ -16,6 +17,9 @@ export struct SummaryCard {
   @Prop icon: string = ''
   @Prop showSign: boolean = false
   @Prop compact: boolean = false
+  @Prop privacyMode: boolean = false
+
+  private themeManager = ThemeManager.getInstance()
 
   build() {
     Column() {
@@ -26,10 +30,10 @@ export struct SummaryCard {
         }
         Text(this.title)
           .fontSize(this.compact ? ThemeFont.xs : ThemeFont.sm)
-          .fontColor('#666666')
+          .fontColor(this.themeManager.isDark ? '#A0A0A0' : '#666666')
       }
 
-      Text(CurrencyUtils.format(this.amount, this.currency, this.showSign))
+      Text(this.privacyMode ? '****' : CurrencyUtils.format(this.amount, this.currency, this.showSign))
         .fontSize(this.compact ? ThemeFont.lg : ThemeFont.xl)
         .fontWeight(ThemeFont.weightBold)
         .fontColor(this.color)
@@ -43,12 +47,12 @@ export struct SummaryCard {
       }
     }
     .padding(this.compact ? ThemeSpacing.md : ThemeSpacing.lg)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.themeManager.isDark ? '#1E1E1E' : '#FFFFFF')
     .borderRadius(ThemeRadius.md)
     .alignItems(HorizontalAlign.Start)
     .shadow({
       radius: 4,
-      color: '#00000008',
+      color: this.themeManager.isDark ? '#00000030' : '#00000008',
       offsetX: 0,
       offsetY: 2
     })

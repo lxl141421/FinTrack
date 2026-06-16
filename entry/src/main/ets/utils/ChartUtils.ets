@@ -1,4 +1,3 @@
-
 /**
  * 图表数据处理工具类
  */
@@ -35,22 +34,18 @@ export class KLineData {
     this.volume = volume
   }
 
-  /** 是否为阳线（收盘 > 开盘） */
   isPositive(): boolean {
     return this.close >= this.open
   }
 
-  /** 实体高度 */
   bodyHeight(): number {
     return Math.abs(this.close - this.open)
   }
 
-  /** 上影线长度 */
   upperShadow(): number {
     return this.high - Math.max(this.open, this.close)
   }
 
-  /** 下影线长度 */
   lowerShadow(): number {
     return Math.min(this.open, this.close) - this.low
   }
@@ -69,14 +64,33 @@ export class PieSlice {
   }
 }
 
+/** 每日金额数据点 */
+export class DailyAmount {
+  timestamp: number = 0
+  amount: number = 0
+
+  constructor(timestamp: number, amount: number) {
+    this.timestamp = timestamp
+    this.amount = amount
+  }
+}
+
+/** 分类聚合数据项 */
+export class CategoryItem {
+  category: string = ''
+  categoryName: string = ''
+  amount: number = 0
+  color: string = '#007DFF'
+
+  constructor(category: string, categoryName: string, amount: number, color: string) {
+    this.category = category
+    this.categoryName = categoryName
+    this.amount = amount
+    this.color = color
+  }
+}
+
 export class ChartUtils {
-  /**
-   * 计算折线图的点坐标
-   * @param data 数据数组
-   * @param width 画布宽度
-   * @param height 画布高度
-   * @param padding 内边距
-   */
   static calculateLinePoints(
     data: number[],
     width: number,
@@ -102,11 +116,6 @@ export class ChartUtils {
     return points
   }
 
-  /**
-   * 计算饼图的数据切片
-   * @param data 标签和数值的映射
-   * @param colors 颜色数组
-   */
   static calculatePieSlices(
     data: Record<string, number>,
     colors: string[]
@@ -114,31 +123,24 @@ export class ChartUtils {
     const slices: PieSlice[] = []
     let total = 0
 
-    for (const key in data) {
-      total += data[key]
+    const keys = Object.keys(data)
+    for (let i = 0; i < keys.length; i++) {
+      total += data[keys[i]]
     }
     if (total <= 0) return slices
 
-    let idx = 0
-    for (const key in data) {
-      const slice = new PieSlice(key, data[key], colors[idx % colors.length])
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i]
+      const slice = new PieSlice(key, data[key], colors[i % colors.length])
       slice.percent = data[key] / total
       slices.push(slice)
-      idx++
     }
 
-    // 按百分比降序排列
-    slices.sort((a, b) => b.percent - a.percent)
+    slices.sort((a: PieSlice, b: PieSlice) => b.percent - a.percent)
     return slices
   }
 
-  /**
-   * 从每日交易数据生成 K 线数据
-   * @param dailyAmounts 每日金额数组 {date, amount}
-   */
-  static generateKLineFromDaily(
-    dailyAmounts: { timestamp: number; amount: number }[]
-  ): KLineData[] {
+  static generateKLineFromDaily(dailyAmounts: DailyAmount[]): KLineData[] {
     if (dailyAmounts.length === 0) return []
 
     const result: KLineData[] = []
@@ -163,11 +165,6 @@ export class ChartUtils {
     return result
   }
 
-  /**
-   * 计算移动平均线
-   * @param data 数据
-   * @param period 周期
-   */
   static calculateMA(data: number[], period: number): number[] {
     const result: number[] = []
     for (let i = 0; i < data.length; i++) {
@@ -184,19 +181,14 @@ export class ChartUtils {
     return result
   }
 
-  /**
-   * 聚合数据（按分组键）
-   */
-  static aggregateByCategory(
-    items: { category: string; categoryName: string; amount: number; color: string }[]
-  ): Record<string, number> {
+  static aggregateByCategory(items: CategoryItem[]): Record<string, number> {
     const result: Record<string, number> = {}
-    for (const item of items) {
-      const key = item.categoryName
+    for (let i = 0; i < items.length; i++) {
+      const key = items[i].categoryName
       if (result[key] === undefined) {
         result[key] = 0
       }
-      result[key] += item.amount
+      result[key] += items[i].amount
     }
     return result
   }

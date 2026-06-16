@@ -15,7 +15,7 @@ import { ThemeFont, ThemeRadius, ThemeSpacing } from '../../theme/Theme'
 @Component
 export struct PieChart {
   @Prop slices: PieSlice[] = []
-  @Prop size: number = 200
+  @Prop chartSize: number = 200
   @Prop innerRadiusRatio: number = 0.55
   @Prop totalLabel: string = '总额'
   @Prop totalAmount: string = '¥0'
@@ -23,20 +23,14 @@ export struct PieChart {
   @State selectedIndex: number = -1
   @State animationProgress: number = 0
 
-  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContext(true))
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D()
   private center: number = 0
   private radius: number = 0
   private innerRadius: number = 0
 
   aboutToAppear(): void {
-    this.center = this.size / 2
-    this.radius = this.size / 2 - 8
-    this.innerRadius = this.radius * this.innerRadiusRatio
-  }
-
-  aboutToAppear(): void {
-    this.center = this.size / 2
-    this.radius = this.size / 2 - 8
+    this.center = this.chartSize / 2
+    this.radius = this.chartSize / 2 - 8
     this.innerRadius = this.radius * this.innerRadiusRatio
     // 启动动画
     this.startAnimation()
@@ -60,8 +54,8 @@ export struct PieChart {
     Column({ space: ThemeSpacing.md }) {
       // 饼图
       Canvas(this.context)
-        .width(this.size)
-        .height(this.size)
+        .width(this.chartSize)
+        .height(this.chartSize)
         .onReady(() => {
           this.drawChart()
         })
@@ -97,7 +91,7 @@ export struct PieChart {
 
   private drawChart(): void {
     const ctx = this.context
-    ctx.clearRect(0, 0, this.size, this.size)
+    ctx.clearRect(0, 0, this.chartSize, this.chartSize)
 
     if (this.slices.length === 0) {
       ctx.fillStyle = '#999999'

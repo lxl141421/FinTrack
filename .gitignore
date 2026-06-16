@@ -21,3 +21,13 @@ Thumbs.db
 
 # 个人文档（不公开）
 docs/INTERVIEW_GUIDE.md
+
+# Build artifacts
+entry/build/
+hvigor/
+oh-package-lock.json5
+entry/oh-package-lock.json5
+ohpm-config.json5
+
+# Personal docs
+INTERVIEW_GUIDE.md

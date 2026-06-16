@@ -1,7 +1,6 @@
-
 import { router } from '@kit.ArkUI'
 import { TransactionCard } from '../components/common/TransactionCard'
-import { CategoryTag } from '../components/common/CategoryTag'
+import { TransactionSkeleton } from '../components/common/Skeleton'
 import { Transaction } from '../models/Transaction'
 import { Category } from '../models/Category'
 import { StorageService } from '../services/StorageService'
@@ -12,8 +11,7 @@ import { ErrorHandler, ErrorType } from '../utils/ErrorHandler'
 import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../theme/Theme'
 
 /**
- * LazyForEach 数据源
- * 实现 IDataSource 接口，支持按需加载
+ * LazyForEach 数据源 - 按需加载交易记录
  */
 class TransactionDataSource implements IDataSource {
   private transactions: Transaction[] = []
@@ -38,9 +36,7 @@ class TransactionDataSource implements IDataSource {
 
   unregisterDataChangeListener(listener: DataChangeListener): void {
     const index = this.listeners.indexOf(listener)
-    if (index >= 0) {
-      this.listeners.splice(index, 1)
-    }
+    if (index >= 0) this.listeners.splice(index, 1)
   }
 
   notifyDataReload(): void {
@@ -62,7 +58,7 @@ struct Transactions {
   @State transactions: Transaction[] = []
   @State filteredTransactions: Transaction[] = []
   @State categories: Category[] = []
-  @State selectedType: number = -1  // -1: 全部, 0: 收入, 1: 支出, 2: 转账
+  @State selectedType: number = -1
   @State selectedCategory: string = ''
   @State searchText: string = ''
   @State totalIncome: number = 0
@@ -82,9 +78,6 @@ struct Transactions {
     this.loadData()
   }
 
-  /**
-   * 页面显示时刷新数据
-   */
   onShow(): void {
     if (this.transactions.length > 0) {
       this.refreshTransactions()
@@ -97,8 +90,15 @@ struct Transactions {
   }
 
   /**
-   * 下拉刷新
+   * @Watch 监听器 - 搜索词变化时自动刷新
    */
+  @Watch('onSearchChange')
+  @State searchWatcher: string = ''
+
+  onSearchChange(): void {
+    this.refreshTransactions()
+  }
+
   private async onRefresh(): Promise<void> {
     this.isRefreshing = true
     this.currentPage = 0
@@ -107,9 +107,6 @@ struct Transactions {
     this.isRefreshing = false
   }
 
-  /**
-   * 上拉加载更多
-   */
   private async loadMore(): Promise<void> {
     if (!this.hasMore || this.isLoading) return
 
@@ -147,12 +144,15 @@ struct Transactions {
         this.selectedType, startDate, endDate, this.selectedCategory, this.searchText
       )
 
-      this.totalIncome = this.transactions
-        .filter(t => t.isIncome())
-        .reduce((sum, t) => sum + t.amount, 0)
-      this.totalExpense = this.transactions
-        .filter(t => t.isExpense())
-        .reduce((sum, t) => sum + t.amount, 0)
+      this.totalIncome = 0
+      this.totalExpense = 0
+      for (let i = 0; i < this.transactions.length; i++) {
+        if (this.transactions[i].isIncome()) {
+          this.totalIncome += this.transactions[i].amount
+        } else if (this.transactions[i].isExpense()) {
+          this.totalExpense += this.transactions[i].amount
+        }
+      }
 
       this.applyFilter()
     } catch (err) {
@@ -166,21 +166,6 @@ struct Transactions {
   private applyFilter(): void {
     this.filteredTransactions = this.transactions
     this.dataSource.setItems(this.filteredTransactions)
-  }
-
-  /**
-   * 按日期分组交易记录
-   */
-  private getGroupedTransactions(): Map<string, Transaction[]> {
-    const groups = new Map<string, Transaction[]>()
-    for (const txn of this.filteredTransactions) {
-      const dateKey = DateUtils.format(txn.date, 'MM-DD') + ' ' + DateUtils.getWeekdayName(txn.date)
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, [])
-      }
-      groups.get(dateKey)!.push(txn)
-    }
-    return groups
   }
 
   build() {
@@ -222,7 +207,6 @@ struct Transactions {
             .fontWeight(ThemeFont.weightMedium)
             .fontColor('#00B578')
         }
-
         Column() {
           Text('支出')
             .fontSize(ThemeFont.xs)
@@ -232,7 +216,6 @@ struct Transactions {
             .fontWeight(ThemeFont.weightMedium)
             .fontColor('#FA2A2D')
         }
-
         Column() {
           Text('结余')
             .fontSize(ThemeFont.xs)
@@ -250,12 +233,15 @@ struct Transactions {
       .backgroundColor(this.themeManager.isDark ? '#1E1E1E' : '#FFFFFF')
       .borderRadius(ThemeRadius.md)
 
-      // 加载中指示器
-      if (this.isLoading) {
-        LoadingProgress()
-          .width(36)
-          .height(36)
-          .margin({ top: ThemeSpacing.xl })
+      // 骨架屏加载态
+      if (this.isLoading && this.transactions.length === 0) {
+        Column({ space: ThemeSpacing.sm }) {
+          ForEach([1, 2, 3, 4, 5], (_: number, index: number) => {
+            TransactionSkeleton()
+          })
+        }
+        .width('100%')
+        .padding(ThemeSpacing.lg)
       }
 
       // 错误状态
@@ -275,82 +261,78 @@ struct Transactions {
         .padding(ThemeSpacing.xl)
       }
 
-      // 交易列表（使用 LazyForEach 优化大数据量渲染）
-      List({ space: ThemeSpacing.sm }) {
-        // 使用 ForEach 遍历分组数据（分组数量通常有限，内部使用 LazyForEach 单项）
-        ForEach(Array.from(this.getGroupedTransactions().entries()), (entry: [string, Transaction[]]) => {
-          ListItemGroup() {
-            // 日期标题
+      // 交易列表（下拉刷新 + LazyForEach）
+      Refresh({ refreshing: $$this.isRefreshing }) {
+        List({ space: ThemeSpacing.sm }) {
+          // 按日期分组
+          ForEach(this.getGroupedArray(), (group: GroupedTxn) => {
+            ListItemGroup() {
+              ListItem() {
+                Row() {
+                  Text(group.dateLabel)
+                    .fontSize(ThemeFont.sm)
+                    .fontColor(this.themeManager.isDark ? '#A0A0A0' : '#666')
+                    .fontWeight(ThemeFont.weightMedium)
+                  Blank()
+                  Text(`收 ${CurrencyUtils.formatShort(group.income)}  支 ${CurrencyUtils.formatShort(group.expense)}`)
+                    .fontSize(ThemeFont.xs)
+                    .fontColor('#999')
+                }
+                .width('100%')
+                .padding({ left: ThemeSpacing.lg, right: ThemeSpacing.lg, top: ThemeSpacing.md, bottom: ThemeSpacing.xs })
+              }
+
+              ForEach(group.transactions, (txn: Transaction) => {
+                ListItem() {
+                  TransactionCard({
+                    transaction: txn,
+                    showDate: false,
+                    privacyMode: this.themeManager.privacyMode
+                  })
+                }
+                .padding({ left: ThemeSpacing.lg, right: ThemeSpacing.lg })
+              })
+            }
+          })
+
+          // 底部加载更多
+          if (this.hasMore && this.filteredTransactions.length > 0) {
             ListItem() {
               Row() {
-                Text(entry[0])
-                  .fontSize(ThemeFont.sm)
-                  .fontColor(this.themeManager.isDark ? '#A0A0A0' : '#666')
-                  .fontWeight(ThemeFont.weightMedium)
-                Blank()
-                Text(`收 ${CurrencyUtils.formatShort(entry[1].filter(t => t.isIncome()).reduce((s, t) => s + t.amount, 0))}  支 ${CurrencyUtils.formatShort(entry[1].filter(t => t.isExpense()).reduce((s, t) => s + t.amount, 0))}`)
-                  .fontSize(ThemeFont.xs)
-                  .fontColor('#999')
+                if (this.isLoading) {
+                  LoadingProgress().width(24).height(24)
+                } else {
+                  Text('上拉加载更多')
+                    .fontSize(ThemeFont.sm)
+                    .fontColor('#999')
+                }
               }
               .width('100%')
-              .padding({ left: ThemeSpacing.lg, right: ThemeSpacing.lg, top: ThemeSpacing.md, bottom: ThemeSpacing.xs })
+              .height(48)
+              .justifyContent(FlexAlign.Center)
             }
-
-            // 交易卡片
-            ForEach(entry[1], (txn: Transaction) => {
-              ListItem() {
-                TransactionCard({
-                  transaction: txn,
-                  showDate: false
-                })
-              }
-              .padding({ left: ThemeSpacing.lg, right: ThemeSpacing.lg })
-            })
+            .onClick(() => { this.loadMore() })
           }
-        })
 
-        // 底部加载更多指示器
-        if (this.hasMore && this.filteredTransactions.length > 0) {
-          ListItem() {
-            Row() {
-              if (this.isLoading) {
-                LoadingProgress()
-                  .width(24)
-                  .height(24)
-              } else {
-                Text('上拉加载更多')
-                  .fontSize(ThemeFont.sm)
-                  .fontColor('#999')
+          // 空状态
+          if (this.filteredTransactions.length === 0 && !this.isLoading) {
+            ListItem() {
+              Column({ space: ThemeSpacing.sm }) {
+                Text('📋').fontSize(48)
+                Text('暂无交易记录').fontSize(ThemeFont.md).fontColor('#999')
               }
+              .width('100%')
+              .padding(ThemeSpacing.xxl * 2)
             }
-            .width('100%')
-            .height(48)
-            .justifyContent(FlexAlign.Center)
-          }
-          .onClick(() => { this.loadMore() })
-        }
-
-        // 空状态
-        if (this.filteredTransactions.length === 0 && !this.isLoading) {
-          ListItem() {
-            Column({ space: ThemeSpacing.sm }) {
-              Text('📋')
-                .fontSize(48)
-              Text(this.errorMessage !== '' ? '加载失败' : '暂无交易记录')
-                .fontSize(ThemeFont.md)
-                .fontColor('#999')
-            }
-            .width('100%')
-            .padding(ThemeSpacing.xxl * 2)
           }
         }
+        .layoutWeight(1)
+        .width('100%')
+        .onReachEnd(() => { this.loadMore() })
       }
+      .onRefreshing(() => { this.onRefresh() })
       .layoutWeight(1)
       .width('100%')
-      .alignListItem(ListItemAlign.Center)
-      .onReachEnd(() => {
-        this.loadMore()
-      })
     }
     .width('100%')
     .height('100%')
@@ -363,12 +345,7 @@ struct Transactions {
       .fontSize(ThemeFont.sm)
       .fontColor(this.selectedType === type ? '#FFFFFF' :
         (this.themeManager.isDark ? '#A0A0A0' : '#666'))
-      .padding({
-        left: ThemeSpacing.md,
-        right: ThemeSpacing.md,
-        top: ThemeSpacing.xs,
-        bottom: ThemeSpacing.xs
-      })
+      .padding({ left: ThemeSpacing.md, right: ThemeSpacing.md, top: ThemeSpacing.xs, bottom: ThemeSpacing.xs })
       .backgroundColor(this.selectedType === type ? '#007DFF' :
         (this.themeManager.isDark ? '#2C2C2C' : '#F5F5F5'))
       .borderRadius(ThemeRadius.full)
@@ -377,4 +354,43 @@ struct Transactions {
         this.refreshTransactions()
       })
   }
+
+  /**
+   * 将交易按日期分组，返回数组供 ForEach 使用
+   */
+  private getGroupedArray(): GroupedTxn[] {
+    const groups: GroupedTxn[] = []
+    const map = new Map<string, Transaction[]>()
+
+    for (let i = 0; i < this.filteredTransactions.length; i++) {
+      const txn = this.filteredTransactions[i]
+      const dateKey = DateUtils.format(txn.date, 'MM-DD') + ' ' + DateUtils.getWeekdayName(txn.date)
+      if (!map.has(dateKey)) {
+        map.set(dateKey, [])
+      }
+      map.get(dateKey)!.push(txn)
+    }
+
+    map.forEach((txns: Transaction[], key: string) => {
+      const group = new GroupedTxn()
+      group.dateLabel = key
+      group.transactions = txns
+      group.income = 0
+      group.expense = 0
+      for (let i = 0; i < txns.length; i++) {
+        if (txns[i].isIncome()) group.income += txns[i].amount
+        if (txns[i].isExpense()) group.expense += txns[i].amount
+      }
+      groups.push(group)
+    })
+
+    return groups
+  }
+}
+
+class GroupedTxn {
+  dateLabel: string = ''
+  transactions: Transaction[] = []
+  income: number = 0
+  expense: number = 0
 }
