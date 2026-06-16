@@ -81,7 +81,12 @@ export class TransactionViewModel {
       this.monthlyIncome = Number(incomeTxns.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
       this.monthlyExpense = Number(expenseTxns.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
       this.monthlyBalance = Number((this.monthlyIncome - this.monthlyExpense).toFixed(2))
-      this.totalAssets = this.monthlyBalance
+      // 总资产 = 所有历史收入 - 所有历史支出
+      const allIncome = await this.storageService.queryTransactions(Constants.TYPE_INCOME, 0, Date.now())
+      const allExpense = await this.storageService.queryTransactions(Constants.TYPE_EXPENSE, 0, Date.now())
+      const totalIncome = Number(allIncome.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      const totalExpense = Number(allExpense.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      this.totalAssets = Number((totalIncome - totalExpense).toFixed(2))
       this.recentTransactions = allTxns
 
       const categoryMap: Record<string, number> = {}

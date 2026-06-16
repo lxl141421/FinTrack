@@ -29,13 +29,11 @@ struct Index {
   @State pieColors: string[] = Constants.DEFAULT_CATEGORIES.map((_: string, i: number) =>
     ['#007DFF', '#00B578', '#FF8800', '#FA2A2D', '#9B59B6', '#3498DB',
      '#1ABC9C', '#F7CE46', '#E74C3C', '#2ECC71', '#34495E', '#95A5A6'][i % 12])
-  @State isLoaded: boolean = false
   @State loadingState: LoadingState = LoadingState.IDLE
   @State errorMessage: string = ''
   @State isPrivacyMode: boolean = false
-  @State gripOffset: number = 0
 
-  private viewModel: TransactionViewModel = new TransactionViewModel()
+  private viewModel: TransactionViewModel = TransactionViewModel.getInstance()
   private budgetService = new BudgetService()
   private themeManager = ThemeManager.getInstance()
 
@@ -44,11 +42,8 @@ struct Index {
   }
 
   onShow(): void {
-    if (this.isLoaded) {
-      this.loadData()
-    }
     this.isPrivacyMode = this.themeManager.privacyMode
-    this.gripOffset = this.themeManager.getActionButtonOffset()
+    this.loadData()
   }
 
   private async loadData(): Promise<void> {
@@ -78,8 +73,6 @@ struct Index {
         hilog.error(0x0000, 'FinTrack', 'Load trend failed')
         this.dailyTrend = []
       }
-
-      this.isLoaded = true
     } catch (err) {
       hilog.error(0x0000, 'FinTrack', 'Load data failed')
       this.errorMessage = '数据加载失败，请下拉刷新重试'
@@ -89,7 +82,7 @@ struct Index {
 
   build() {
     Navigation() {
-      if (this.loadingState === LoadingState.LOADING && !this.isLoaded) {
+      if (this.loadingState === LoadingState.LOADING && this.recentTransactions.length === 0) {
         Column() {
           LoadingProgress()
             .width(48)
@@ -102,7 +95,7 @@ struct Index {
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-      } else if (this.loadingState === LoadingState.ERROR && !this.isLoaded) {
+      } else if (this.loadingState === LoadingState.ERROR && this.recentTransactions.length === 0) {
         Column({ space: ThemeSpacing.md }) {
           Text('😵')
             .fontSize(64)
@@ -123,14 +116,14 @@ struct Index {
         .justifyContent(FlexAlign.Center)
       } else {
         Scroll() {
-          Column({ space: ThemeSpacing.lg }) {
+          Column({ space: ThemeSpacing.md }) {
             this.buildHeader()
             this.buildSummaryCards()
             this.buildTrendChart()
             this.buildCategoryPie()
             this.buildRecentTransactions()
           }
-          .padding(ThemeSpacing.lg)
+          .padding({ left: ThemeSpacing.lg, right: ThemeSpacing.lg, top: ThemeSpacing.md, bottom: ThemeSpacing.xxl })
         }
         .width('100%')
         .height('100%')
@@ -144,41 +137,36 @@ struct Index {
   @Builder
   buildHeader() {
     Column({ space: ThemeSpacing.sm }) {
+      // 顶部操作栏
       Row() {
-        Column() {
-          Text('总资产')
-            .fontSize(ThemeFont.sm)
-            .fontColor('#FFFFFF90')
-          AnimatedNumber({
-            value: this.totalAssets,
-            fontSize: ThemeFont.hero,
-            fontWeight: ThemeFont.weightBold,
-            fontColor: '#FFFFFF',
-            prefix: this.isPrivacyMode ? '' : '¥'
-          })
-        }
-        .alignItems(HorizontalAlign.Start)
-
-        // 股票行情入口
+        Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.totalAssets))
+          .fontSize(32)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#FFFFFF')
+        Blank()
+        // 股票入口
         Button() {
           Text('📈')
-            .fontSize(18)
+            .fontSize(16)
         }
-        .width(40)
-        .height(40)
+        .width(36)
+        .height(36)
         .borderRadius(ThemeRadius.full)
         .backgroundColor('#FFFFFF20')
         .onClick(() => {
           router.pushUrl({ url: 'pages/StockMarket' })
         })
+        .margin({ right: ThemeSpacing.sm })
 
+        // 添加按钮
         Button() {
           Text('+')
-            .fontSize(ThemeFont.xl)
+            .fontSize(20)
             .fontColor('#FFFFFF')
+            .fontWeight(FontWeight.Bold)
         }
-        .width(48)
-        .height(48)
+        .width(36)
+        .height(36)
         .borderRadius(ThemeRadius.full)
         .backgroundColor('#FFFFFF30')
         .onClick(() => {
@@ -186,13 +174,60 @@ struct Index {
         })
       }
       .width('100%')
+      .alignItems(VerticalAlign.Center)
 
-      Text(this.isPrivacyMode ? '本月结余 ****' : `本月结余 ${CurrencyUtils.format(this.monthlyBalance)}`)
-        .fontSize(ThemeFont.sm)
+      // 总资产标签
+      Text('总资产')
+        .fontSize(ThemeFont.xs)
         .fontColor('#FFFFFF80')
+
+      // 本月结余
+      Divider()
+        .color('#FFFFFF20')
+        .margin({ top: 4, bottom: 4 })
+
+      Row() {
+        Column({ space: 2 }) {
+          Text('本月收入')
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FFFFFF80')
+          Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.monthlyIncome))
+            .fontSize(ThemeFont.md)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#FFFFFF')
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        Column({ space: 2 }) {
+          Text('本月支出')
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FFFFFF80')
+          Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.monthlyExpense))
+            .fontSize(ThemeFont.md)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#FFFFFF')
+        }
+        .alignItems(HorizontalAlign.Center)
+        .layoutWeight(1)
+
+        Column({ space: 2 }) {
+          Text('本月结余')
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FFFFFF80')
+          Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.monthlyBalance))
+            .fontSize(ThemeFont.md)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.monthlyBalance >= 0 ? '#FFFFFF' : '#FF6B6B')
+        }
+        .alignItems(HorizontalAlign.End)
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .margin({ top: ThemeSpacing.sm })
     }
     .width('100%')
-    .padding(ThemeSpacing.xl)
+    .padding(ThemeSpacing.lg)
     .linearGradient({
       direction: GradientDirection.Right,
       colors: [['#007DFF', 0.0], ['#005BB5', 1.0]]
