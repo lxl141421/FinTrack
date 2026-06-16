@@ -1,4 +1,3 @@
-
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { window } from '@kit.ArkUI'
@@ -19,9 +18,6 @@ export default class EntryAbility extends UIAbility {
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     this.perfMonitor.markPageStart('AppLaunch')
     hilog.info(0x0000, 'FinTrack', 'Ability onCreate')
-
-    await this.storageService.init(this.context)
-    await this.notificationService.requestPermission()
   }
 
   onDestroy(): void {
@@ -30,8 +26,15 @@ export default class EntryAbility extends UIAbility {
     this.perfMonitor.printReport()
   }
 
-  onWindowStageCreate(windowStage: window.WindowStage): void {
+  async onWindowStageCreate(windowStage: window.WindowStage): Promise<void> {
     hilog.info(0x0000, 'FinTrack', 'Ability onWindowStageCreate')
+
+    // 必须在加载页面前完成初始化，否则 Index 查询时 rdbStore 为 null
+    await this.storageService.init(this.context)
+    hilog.info(0x0000, 'FinTrack', 'StorageService initialized')
+
+    await this.notificationService.requestPermission()
+
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(0x0000, 'FinTrack', 'Failed to load content')
