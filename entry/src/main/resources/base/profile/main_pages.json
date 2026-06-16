@@ -5,6 +5,7 @@
     "pages/AddTransaction",
     "pages/Budget",
     "pages/Settings",
-    "pages/GestureLock"
+    "pages/GestureLock",
+    "pages/StockMarket"
   ]
 }

@@ -159,7 +159,18 @@ struct Index {
         }
         .alignItems(HorizontalAlign.Start)
 
-        Blank()
+        // 股票行情入口
+        Button() {
+          Text('📈')
+            .fontSize(18)
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(ThemeRadius.full)
+        .backgroundColor('#FFFFFF20')
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/StockMarket' })
+        })
 
         Button() {
           Text('+')
