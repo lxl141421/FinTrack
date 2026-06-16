@@ -135,7 +135,7 @@ export class SessionGuard {
 
     this.timeoutTimer = setTimeout(() => {
       this.onTimeout()
-    }, this.timeoutMs) as unknown as number
+    }, this.timeoutMs) as number
   }
 
   /**

@@ -46,7 +46,7 @@ export class Encryption {
       const cipher = cryptoFramework.createCipher('AES256_GCM')
       const gcmParams: cryptoFramework.GcmParamsSpec = {
         iv: iv,
-        aad: null as unknown as cryptoFramework.DataBlob,
+        aad: { data: new Uint8Array(0) } as cryptoFramework.DataBlob,
         tagLen: Encryption.GCM_TAG_SIZE
       }
       await cipher.init(cryptoFramework.CryptoMode.ENCRYPT_MODE, key, gcmParams)
@@ -103,7 +103,7 @@ export class Encryption {
       const cipher = cryptoFramework.createCipher('AES256_GCM')
       const gcmParams: cryptoFramework.GcmParamsSpec = {
         iv: { data: ivBytes },
-        aad: null as unknown as cryptoFramework.DataBlob,
+        aad: { data: new Uint8Array(0) } as cryptoFramework.DataBlob,
         tagLen: Encryption.GCM_TAG_SIZE
       }
       await cipher.init(cryptoFramework.CryptoMode.DECRYPT_MODE, key, gcmParams)
