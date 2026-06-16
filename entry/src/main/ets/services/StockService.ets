@@ -1,4 +1,5 @@
 import { hilog } from '@kit.PerformanceAnalysisKit'
+import { http } from '@kit.NetworkKit'
 import { KLineData } from '../utils/ChartUtils'
 
 /**
@@ -111,12 +112,17 @@ export class StockService {
 
     try {
       const url = `https://hq.sinajs.cn/list=${code}`
-      const response = await fetch(url)
-      const text = await response.text()
+      const httpRequest = http.createHttp()
+      const response = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        expectDataType: http.HttpDataType.STRING
+      })
+      const text = response.result as string
+      httpRequest.destroy()
 
       const quote = this.parseQuoteResponse(code, text)
       if (quote !== null) {
-        this.quoteCache.set(code, { data: quote, timestamp: Date.now() })
+        this.quoteCache.set(code, new CacheEntry(quote, Date.now()))
       }
       return quote
     } catch (err) {

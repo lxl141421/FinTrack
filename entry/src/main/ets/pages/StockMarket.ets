@@ -239,8 +239,8 @@ struct StockMarket {
 
         CandlestickChart({
           data: this.kLineData,
-          width: 350,
-          height: 280,
+          chartWidth: 350,
+          chartHeight: 280,
           showMA: true
         })
       }

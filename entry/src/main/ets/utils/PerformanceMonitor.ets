@@ -90,7 +90,7 @@ export class PerformanceMonitor {
     } catch (err) {
       const duration = Date.now() - start
       this.recordApiTime(apiName, duration)
-      throw err
+      throw err as Error
     }
   }
 
