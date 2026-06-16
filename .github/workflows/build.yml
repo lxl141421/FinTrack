@@ -13,20 +13,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check ArkTS syntax
+      - name: Check ArkTS anti-patterns
         run: |
-          echo "Checking ArkTS file syntax..."
-          find entry/src/main/ets -name "*.ets" -type f | while read file; do
-            echo "Checking: $file"
-            # Basic syntax checks
-            if grep -q "import.*from.*'.*'" "$file" || grep -q 'import.*from.*".*"' "$file"; then
-              echo "  ✓ Imports found"
-            fi
-            if grep -q "@Entry\|@Component\|@Builder\|export" "$file"; then
-              echo "  ✓ ArkTS decorators/exports found"
-            fi
-          done
-          echo "All files passed basic syntax check."
+          echo "=== ArkTS Anti-Pattern Check ==="
+          FAIL=0
+
+          # Check for...of (not supported in ArkTS)
+          COUNT=$(grep -rn "for.*of\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | grep -v "_idx" | grep -v "forEach" | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "✗ Found $COUNT for...of loops (ArkTS does not support for...of):"
+            grep -rn "for.*of\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | grep -v "_idx" | grep -v "forEach"
+            FAIL=1
+          else
+            echo "✓ No for...of loops found"
+          fi
+
+          # Check for 'any' type
+          COUNT=$(grep -rn "\bany\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | grep -v "unknown" | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "✗ Found $COUNT 'any' type usages:"
+            grep -rn "\bany\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | head -5
+            FAIL=1
+          else
+            echo "✓ No 'any' type found"
+          fi
+
+          # Check for 'unknown' type
+          COUNT=$(grep -rn "\bunknown\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "✗ Found $COUNT 'unknown' type usages"
+            FAIL=1
+          else
+            echo "✓ No 'unknown' type found"
+          fi
+
+          # Check for destructuring (not supported in ArkTS)
+          COUNT=$(grep -rn "const {" entry/src/main/ets/ --include="*.ets" | grep -v "//" | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "⚠ Found $COUNT destructuring patterns (may not compile in ArkTS)"
+          fi
+
+          # Check for eval
+          COUNT=$(grep -rn "\beval\b" entry/src/main/ets/ --include="*.ets" | grep -v "//" | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "✗ Found eval() usage (security risk)"
+            FAIL=1
+          else
+            echo "✓ No eval() found"
+          fi
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "Lint check FAILED. Fix the issues above."
+            exit 1
+          fi
+          echo ""
+          echo "✓ All lint checks passed."
 
   structure:
     name: Project Structure Check
@@ -36,9 +78,8 @@ jobs:
 
       - name: Verify project structure
         run: |
-          echo "Verifying FinTrack project structure..."
+          echo "=== Project Structure Verification ==="
 
-          # Check required files
           required_files=(
             "AppScope/app.json5"
             "entry/src/main/module.json5"
@@ -52,29 +93,33 @@ jobs:
             "LICENSE"
           )
 
+          FAIL=0
           for file in "${required_files[@]}"; do
             if [ -f "$file" ]; then
               echo "  ✓ $file"
             else
               echo "  ✗ MISSING: $file"
-              exit 1
+              FAIL=1
             fi
           done
 
-          # Check source files
-          echo ""
-          echo "Source files:"
-          find entry/src/main/ets -name "*.ets" -type f | wc -l
-          echo " ArkTS source files found."
+          if [ "$FAIL" -eq 1 ]; then
+            exit 1
+          fi
 
-          # Check test files
-          echo ""
-          echo "Test files:"
-          find entry/src/ohosTest -name "*.test.ets" -type f | wc -l
-          echo " test files found."
+          SRC_COUNT=$(find entry/src/main/ets -name "*.ets" -type f | wc -l)
+          TEST_COUNT=$(find entry/src/ohosTest -name "*.test.ets" -type f | wc -l)
 
           echo ""
-          echo "✓ Project structure verified."
+          echo "Source files: $SRC_COUNT"
+          echo "Test files:   $TEST_COUNT"
+
+          if [ "$TEST_COUNT" -lt 5 ]; then
+            echo "⚠ Low test coverage ($TEST_COUNT test files)"
+          fi
+
+          echo ""
+          echo "✓ Structure verified."
 
   docs:
     name: Documentation Check
@@ -84,26 +129,30 @@ jobs:
 
       - name: Check documentation
         run: |
-          echo "Checking documentation..."
+          echo "=== Documentation Check ==="
 
           if [ -f "README.md" ]; then
             lines=$(wc -l < README.md)
             echo "  ✓ README.md ($lines lines)"
-            if [ $lines -lt 50 ]; then
+            if [ "$lines" -lt 50 ]; then
               echo "  ⚠ README seems short (< 50 lines)"
             fi
           fi
 
-          if [ -f "docs/ARCHITECTURE.md" ]; then
-            echo "  ✓ ARCHITECTURE.md"
+          for doc in "docs/ARCHITECTURE.md" "docs/CONTRIBUTING.md" "docs/API.md"; do
+            if [ -f "$doc" ]; then
+              echo "  ✓ $doc"
+            else
+              echo "  ⚠ Missing: $doc"
+            fi
+          done
+
+          # Check for .eslintrc
+          if [ -f ".eslintrc.json" ] || [ -f ".eslintrc.js" ]; then
+            echo "  ✓ ESLint config present"
+          else
+            echo "  ⚠ No ESLint config found"
           fi
 
-          if [ -f "docs/CONTRIBUTING.md" ]; then
-            echo "  ✓ CONTRIBUTING.md"
-          fi
-
-          if [ -f "docs/API.md" ]; then
-            echo "  ✓ API.md"
-          fi
-
+          echo ""
           echo "✓ Documentation check complete."
