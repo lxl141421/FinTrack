@@ -1,6 +1,11 @@
 # FinTrack - 鸿蒙智能记账应用
 
-> 基于 HarmonyOS NEXT (API 20) 的个人财务管理应用，集成传感器智能交互、数据加密、分布式同步等鸿蒙特色能力。
+[![HarmonyOS](https://img.shields.io/badge/HarmonyOS-NEXT%20API%2020-orange)](https://developer.huawei.com/consumer/cn/harmonyos/)
+[![ArkTS](https://img.shields.io/badge/ArkTS-TypeScript-blue)](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/application-dev-guide-arkts-0000001820879565)
+[![Tests](https://img.shields.io/badge/Tests-103-brightgreen)](./entry/src/ohosTest/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
+
+> 基于 HarmonyOS NEXT (API 20) 的个人财务管理应用，集成传感器智能交互、AES-256-GCM 加密、分布式同步等鸿蒙特色能力。
 
 ## 📱 功能特性
 
@@ -21,7 +26,7 @@
 - **🔔 智能通知** - 预算超支预警、大额交易提醒
 
 ### 工程能力
-- **AES 数据加密** - 交易备注自动加密存储
+- **AES-256-GCM 数据加密** - 交易备注使用 @ohos.security.cryptoFramework 加密存储
 - **骨架屏加载态** - 提升用户感知性能
 - **下拉刷新 + 上拉加载** - Refresh 组件 + 分页查询
 - **LazyForEach 按需加载** - IDataSource 接口，大数据量性能优化
@@ -110,7 +115,7 @@ entry/src/main/ets/
 | 认证 | UserAuthKit (面部+指纹) |
 | 通知 | NotificationKit |
 | 桌面卡片 | FormKit |
-| 加密 | AES (XOR + Base64) |
+| 加密 | AES-256-GCM (@ohos.security.cryptoFramework) |
 
 ## 📊 代码统计
 

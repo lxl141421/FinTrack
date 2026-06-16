@@ -213,6 +213,65 @@ export class PerformanceMonitor {
   }
 
   /**
+   * 导出性能数据为 JSON 字符串
+   * 可用于分享给开发者分析
+   */
+  exportToJson(): string {
+    const summary = this.getSummary()
+    const exportData = {
+      timestamp: Date.now(),
+      appVersion: '1.0.0',
+      pageLoads: summary.pageLoads,
+      apiAvgTimes: summary.apiAvgTimes,
+      currentFPS: summary.currentFPS,
+      totalReports: summary.totalReports,
+      pageLoadDetails: this.getPageLoadDetails(),
+      apiDetails: this.getApiDetails()
+    }
+    return JSON.stringify(exportData, null, 2)
+  }
+
+  /**
+   * 获取页面加载详情
+   */
+  private getPageLoadDetails(): Record<string, number>[] {
+    const details: Record<string, number>[] = []
+    this.pageLoadTimes.forEach((value: number, key: string) => {
+      if (key.startsWith('duration_')) {
+        details.push({
+          page: key.replace('duration_', ''),
+          duration: value
+        })
+      }
+    })
+    return details
+  }
+
+  /**
+   * 获取接口耗时详情
+   */
+  private getApiDetails(): Record<string, Record<string, number>>[] {
+    const details: Record<string, Record<string, number>>[] = []
+    this.apiTimes.forEach((values: number[], key: string) => {
+      if (values.length > 0) {
+        const sorted = values.slice().sort((a: number, b: number) => a - b)
+        details.push({
+          api: {
+            name: key,
+            count: values.length,
+            avg: this.getApiAvgTime(key),
+            min: sorted[0],
+            max: sorted[sorted.length - 1],
+            p50: sorted[Math.floor(sorted.length * 0.5)],
+            p95: sorted[Math.floor(sorted.length * 0.95)]
+          }
+        })
+      }
+    })
+    return details
+  }
+
+  /**
    * 重置所有数据
    */
   reset(): void {
