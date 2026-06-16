@@ -1,0 +1,42 @@
+{
+  "forms": [
+    {
+      "name": "finance_widget_small",
+      "displayName": "$string:widget_small_name",
+      "description": "$string:widget_small_desc",
+      "src": "./ets/widget/pages/FinanceWidgetSmall.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "isDefault": true,
+      "colorMode": "auto",
+      "supportDimensions": ["2*2"],
+      "defaultDimension": "2*2",
+      "updateEnabled": true,
+      "scheduledUpdateTime": "0:30",
+      "formConfigAbility": "ability://FinanceWidgetAbility",
+      "dataProxyEnabled": false
+    },
+    {
+      "name": "finance_widget_medium",
+      "displayName": "$string:widget_medium_name",
+      "description": "$string:widget_medium_desc",
+      "src": "./ets/widget/pages/FinanceWidgetMedium.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "isDefault": false,
+      "colorMode": "auto",
+      "supportDimensions": ["2*4"],
+      "defaultDimension": "2*4",
+      "updateEnabled": true,
+      "scheduledUpdateTime": "0:30",
+      "formConfigAbility": "ability://FinanceWidgetAbility",
+      "dataProxyEnabled": false
+    }
+  ]
+}

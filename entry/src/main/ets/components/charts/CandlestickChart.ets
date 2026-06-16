@@ -14,16 +14,16 @@ import { ThemeRadius, ThemeFont, ThemeSpacing } from '../../theme/Theme'
  * - 下方显示成交量柱状图
  *
  * @param data K 线数据数组
- * @param width 画布宽度
- * @param height 画布高度
+ * @param chartWidth 画布宽度
+ * @param chartHeight 画布高度
  * @param showMA 是否显示均线
  * @param volumeHeightRatio 成交量区域占总高度的比例
  */
 @Component
 export struct CandlestickChart {
   @Prop data: KLineData[] = []
-  @Prop width: number = 350
-  @Prop height: number = 300
+  @Prop chartWidth: number = 350
+  @Prop chartHeight: number = 300
   @Prop showMA: boolean = true
   @Prop volumeHeightRatio: number = 0.25
 
@@ -32,12 +32,12 @@ export struct CandlestickChart {
 
   private candleWidth: number = 12
   private candleGap: number = 4
-  private padding: number = 12
+  private chartPadding: number = 12
   private volumeTop: number = 0
 
   aboutToAppear(): void {
     this.calculateCandleWidth()
-    this.volumeTop = this.height * (1 - this.volumeHeightRatio)
+    this.volumeTop = this.chartHeight * (1 - this.volumeHeightRatio)
   }
 
   /**
@@ -45,7 +45,7 @@ export struct CandlestickChart {
    */
   private calculateCandleWidth(): void {
     if (this.data.length === 0) return
-    const availableWidth = this.width - this.padding * 2
+    const availableWidth = this.chartWidth - this.chartPadding * 2
     const totalGap = (this.data.length - 1) * this.candleGap
     const cw = (availableWidth - totalGap) / this.data.length
     this.candleWidth = Math.max(Constants.KLINE_CANDLE_MIN_WIDTH,
@@ -55,7 +55,7 @@ export struct CandlestickChart {
   /**
    * 获取价格范围
    */
-  private getPriceRange(): { min: number; max: number } {
+  private getPriceRange(): PriceRange {
     let min = Infinity
     let max = -Infinity
     for (const d of this.data) {
@@ -64,7 +64,10 @@ export struct CandlestickChart {
     }
     // 上下留 5% 余量
     const margin = (max - min) * 0.05
-    return { min: min - margin, max: max + margin }
+    const result = new PriceRange()
+    result.min = min - margin
+    result.max = max + margin
+    return result
   }
 
   /**
@@ -82,8 +85,8 @@ export struct CandlestickChart {
     Stack({ alignContent: Alignment.Top }) {
       // K 线画布
       Canvas(this.context)
-        .width(this.width)
-        .height(this.height)
+        .width(this.chartWidth)
+        .height(this.chartHeight)
         .onReady(() => {
           this.drawChart()
         })
@@ -96,11 +99,11 @@ export struct CandlestickChart {
         this.buildDataPanel()
       }
     }
-    .width(this.width)
-    .height(this.height)
+    .width(this.chartWidth)
+    .height(this.chartHeight)
   }
 
-  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContext(true))
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D()
 
   /**
    * 绘制图表
@@ -108,19 +111,19 @@ export struct CandlestickChart {
   private drawChart(): void {
     const ctx = this.context
     // 清空画布
-    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.clearRect(0, 0, this.chartWidth, this.chartHeight)
 
     if (this.data.length === 0) {
       ctx.fillStyle = '#999999'
       ctx.font = `${ThemeFont.md}px sans-serif`
       ctx.textAlign = 'center'
-      ctx.fillText('暂无数据', this.width / 2, this.height / 2)
+      ctx.fillText('暂无数据', this.chartWidth / 2, this.chartHeight / 2)
       return
     }
 
     const priceRange = this.getPriceRange()
     const maxVolume = this.getMaxVolume()
-    const chartHeight = this.volumeTop - this.padding * 2
+    const chartHeight = this.volumeTop - this.chartPadding * 2
 
     // 绘制网格线
     this.drawGrid(ctx, priceRange, chartHeight)
@@ -142,24 +145,24 @@ export struct CandlestickChart {
     this.drawPriceLabels(ctx, priceRange, chartHeight)
   }
 
-  private drawGrid(ctx: CanvasRenderingContext2D, priceRange: { min: number; max: number }, chartHeight: number): void {
+  private drawGrid(ctx: CanvasRenderingContext2D, priceRange: PriceRange, chartHeight: number): void {
     ctx.strokeStyle = '#F0F0F0'
     ctx.lineWidth = 0.5
     // 横线
     for (let i = 0; i <= 4; i++) {
-      const y = this.padding + (chartHeight / 4) * i
+      const y = this.chartPadding + (chartHeight / 4) * i
       ctx.beginPath()
-      ctx.moveTo(this.padding, y)
-      ctx.lineTo(this.width - this.padding, y)
+      ctx.moveTo(this.chartPadding, y)
+      ctx.lineTo(this.chartWidth - this.chartPadding, y)
       ctx.stroke()
     }
   }
 
-  private drawCandle(ctx: CanvasRenderingContext2D, index: number, priceRange: { min: number; max: number }, chartHeight: number): void {
+  private drawCandle(ctx: CanvasRenderingContext2D, index: number, priceRange: PriceRange, chartHeight: number): void {
     const d = this.data[index]
-    const x = this.padding + index * (this.candleWidth + this.candleGap) + this.candleWidth / 2
+    const x = this.chartPadding + index * (this.candleWidth + this.candleGap) + this.candleWidth / 2
     const priceToY = (price: number): number => {
-      return this.padding + chartHeight * (1 - (price - priceRange.min) / (priceRange.max - priceRange.min))
+      return this.chartPadding + chartHeight * (1 - (price - priceRange.min) / (priceRange.max - priceRange.min))
     }
 
     const openY = priceToY(d.open)
@@ -191,13 +194,16 @@ export struct CandlestickChart {
     }
   }
 
-  private drawMA(ctx: CanvasRenderingContext2D, priceRange: { min: number; max: number }, chartHeight: number): void {
-    const closes = this.data.map(d => d.close)
+  private drawMA(ctx: CanvasRenderingContext2D, priceRange: PriceRange, chartHeight: number): void {
+    const closes: number[] = []
+    for (let i = 0; i < this.data.length; i++) {
+      closes.push(this.data[i].close)
+    }
     const ma5 = ChartUtils.calculateMA(closes, 5)
     const ma10 = ChartUtils.calculateMA(closes, 10)
 
     const priceToY = (price: number): number => {
-      return this.padding + chartHeight * (1 - (price - priceRange.min) / (priceRange.max - priceRange.min))
+      return this.chartPadding + chartHeight * (1 - (price - priceRange.min) / (priceRange.max - priceRange.min))
     }
 
     // MA5
@@ -207,7 +213,7 @@ export struct CandlestickChart {
     let started = false
     for (let i = 0; i < ma5.length; i++) {
       if (isNaN(ma5[i])) continue
-      const x = this.padding + i * (this.candleWidth + this.candleGap) + this.candleWidth / 2
+      const x = this.chartPadding + i * (this.candleWidth + this.candleGap) + this.candleWidth / 2
       const y = priceToY(ma5[i])
       if (!started) { ctx.moveTo(x, y); started = true } else { ctx.lineTo(x, y) }
     }
@@ -219,7 +225,7 @@ export struct CandlestickChart {
     started = false
     for (let i = 0; i < ma10.length; i++) {
       if (isNaN(ma10[i])) continue
-      const x = this.padding + i * (this.candleWidth + this.candleGap) + this.candleWidth / 2
+      const x = this.chartPadding + i * (this.candleWidth + this.candleGap) + this.candleWidth / 2
       const y = priceToY(ma10[i])
       if (!started) { ctx.moveTo(x, y); started = true } else { ctx.lineTo(x, y) }
     }
@@ -227,27 +233,27 @@ export struct CandlestickChart {
   }
 
   private drawVolume(ctx: CanvasRenderingContext2D, maxVolume: number): void {
-    const volumeHeight = this.height * this.volumeHeightRatio - this.padding
+    const volumeHeight = this.chartHeight * this.volumeHeightRatio - this.chartPadding
     for (let i = 0; i < this.data.length; i++) {
       const d = this.data[i]
-      const x = this.padding + i * (this.candleWidth + this.candleGap)
+      const x = this.chartPadding + i * (this.candleWidth + this.candleGap)
       const barHeight = (d.volume / maxVolume) * volumeHeight
       const color = d.isPositive() ? '#00B57830' : '#FA2A2D30'
 
       ctx.fillStyle = color
-      ctx.fillRect(x, this.height - this.padding - barHeight, this.candleWidth, barHeight)
+      ctx.fillRect(x, this.chartHeight - this.chartPadding - barHeight, this.candleWidth, barHeight)
     }
   }
 
-  private drawPriceLabels(ctx: CanvasRenderingContext2D, priceRange: { min: number; max: number }, chartHeight: number): void {
+  private drawPriceLabels(ctx: CanvasRenderingContext2D, priceRange: PriceRange, chartHeight: number): void {
     ctx.fillStyle = '#999999'
     ctx.font = `${ThemeFont.xs}px sans-serif`
     ctx.textAlign = 'right'
 
     for (let i = 0; i <= 4; i++) {
-      const y = this.padding + (chartHeight / 4) * i
+      const y = this.chartPadding + (chartHeight / 4) * i
       const price = priceRange.max - ((priceRange.max - priceRange.min) / 4) * i
-      ctx.fillText(price.toFixed(2), this.width - 2, y - 2)
+      ctx.fillText(price.toFixed(2), this.chartWidth - 2, y - 2)
     }
   }
 
@@ -257,7 +263,7 @@ export struct CandlestickChart {
   private handleTouch(event: TouchEvent): void {
     if (event.type === TouchType.Down || event.type === TouchType.Move) {
       const touch = event.touches[0]
-      const localX = touch.x - this.padding
+      const localX = touch.x - this.chartPadding
       const idx = Math.floor(localX / (this.candleWidth + this.candleGap))
       if (idx >= 0 && idx < this.data.length) {
         this.selectedIndex = idx
@@ -275,7 +281,7 @@ export struct CandlestickChart {
 
   private drawCrosshair(index: number): void {
     const ctx = this.context
-    const x = this.padding + index * (this.candleWidth + this.candleGap) + this.candleWidth / 2
+    const x = this.chartPadding + index * (this.candleWidth + this.candleGap) + this.candleWidth / 2
 
     ctx.strokeStyle = '#666666'
     ctx.lineWidth = 0.5
@@ -283,8 +289,8 @@ export struct CandlestickChart {
 
     // 竖线
     ctx.beginPath()
-    ctx.moveTo(x, this.padding)
-    ctx.lineTo(x, this.height - this.padding)
+    ctx.moveTo(x, this.chartPadding)
+    ctx.lineTo(x, this.chartHeight - this.chartPadding)
     ctx.stroke()
 
     ctx.setLineDash([])
@@ -325,4 +331,9 @@ export struct CandlestickChart {
     .width(180)
     .position({ x: 8, y: 8 })
   }
+}
+
+class PriceRange {
+  min: number = 0
+  max: number = 0
 }

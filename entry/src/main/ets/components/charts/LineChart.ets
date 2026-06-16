@@ -16,21 +16,21 @@ import { ThemeFont, ThemeSpacing } from '../../theme/Theme'
 export struct LineChart {
   @Prop data: number[] = []
   @Prop labels: string[] = []
-  @Prop width: number = 350
-  @Prop height: number = 200
+  @Prop chartWidth: number = 350
+  @Prop chartHeight: number = 200
   @Prop lineColor: string = '#007DFF'
   @Prop fillColor: string = '#007DFF20'
   @Prop showDots: boolean = true
   @Prop showArea: boolean = true
 
-  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContext(true))
-  private padding: number = 12
+  private context: CanvasRenderingContext2D = new CanvasRenderingContext2D()
+  private chartPadding: number = 12
   private points: ChartDataPoint[] = []
 
   build() {
     Canvas(this.context)
-      .width(this.width)
-      .height(this.height)
+      .width(this.chartWidth)
+      .height(this.chartHeight)
       .onReady(() => {
         this.drawChart()
       })
@@ -38,17 +38,17 @@ export struct LineChart {
 
   private drawChart(): void {
     const ctx = this.context
-    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.clearRect(0, 0, this.chartWidth, this.chartHeight)
 
     if (this.data.length === 0) {
       ctx.fillStyle = '#999999'
       ctx.font = `${ThemeFont.md}px sans-serif`
       ctx.textAlign = 'center'
-      ctx.fillText('暂无数据', this.width / 2, this.height / 2)
+      ctx.fillText('暂无数据', this.chartWidth / 2, this.chartHeight / 2)
       return
     }
 
-    this.points = ChartUtils.calculateLinePoints(this.data, this.width, this.height, this.padding)
+    this.points = ChartUtils.calculateLinePoints(this.data, this.chartWidth, this.chartHeight, this.chartPadding)
 
     // 绘制渐变填充
     if (this.showArea) {
@@ -90,7 +90,7 @@ export struct LineChart {
   private drawArea(ctx: CanvasRenderingContext2D): void {
     if (this.points.length < 2) return
 
-    const gradient = ctx.createLinearGradient(0, this.padding, 0, this.height - this.padding)
+    const gradient = ctx.createLinearGradient(0, this.chartPadding, 0, this.chartHeight - this.chartPadding)
     gradient.addColorStop(0, this.fillColor)
     gradient.addColorStop(1, this.fillColor.replace('20', '05'))
 
@@ -104,8 +104,8 @@ export struct LineChart {
       ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y)
     }
 
-    ctx.lineTo(this.points[this.points.length - 1].x, this.height - this.padding)
-    ctx.lineTo(this.points[0].x, this.height - this.padding)
+    ctx.lineTo(this.points[this.points.length - 1].x, this.chartHeight - this.chartPadding)
+    ctx.lineTo(this.points[0].x, this.chartHeight - this.chartPadding)
     ctx.closePath()
     ctx.fillStyle = gradient
     ctx.fill()
@@ -135,13 +135,13 @@ export struct LineChart {
     const step = Math.max(1, Math.floor(this.labels.length / maxLabels))
     for (let i = 0; i < this.labels.length; i += step) {
       if (i < this.points.length) {
-        ctx.fillText(this.labels[i], this.points[i].x, this.height - 2)
+        ctx.fillText(this.labels[i], this.points[i].x, this.chartHeight - 2)
       }
     }
     // 确保最后一个标签显示
     if (this.labels.length > 1 && this.points.length > 0) {
       const last = this.labels.length - 1
-      ctx.fillText(this.labels[last], this.points[last].x, this.height - 2)
+      ctx.fillText(this.labels[last], this.points[last].x, this.chartHeight - 2)
     }
   }
 }

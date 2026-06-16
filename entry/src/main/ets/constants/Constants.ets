@@ -25,6 +25,17 @@ export class Constants {
   static readonly THEME_LIGHT: number = 0
   static readonly THEME_DARK: number = 1
   static readonly THEME_SYSTEM: number = 2
+  static readonly THEME_AUTO_SENSOR: number = 3  // 环境光传感器自动切换
+
+  // 传感器
+  static readonly SENSOR_LIGHT_DARK_THRESHOLD: number = 30   // 暗环境阈值 (lux)
+  static readonly SENSOR_LIGHT_LIGHT_THRESHOLD: number = 80  // 亮环境阈值 (lux)
+  static readonly SENSOR_PROXIMITY_THRESHOLD: number = 5     // 距离传感器阈值 (cm)
+
+  // 通知
+  static readonly NOTIFICATION_BUDGET_ALERT: string = 'budget_alert'
+  static readonly NOTIFICATION_TRANSACTION: string = 'transaction_alert'
+  static readonly NOTIFICATION_MONTHLY: string = 'monthly_report'
 
   // 交易类型
   static readonly TYPE_INCOME: number = 0

@@ -1,5 +1,6 @@
 
 import { StorageService } from './StorageService'
+import { NotificationService } from './NotificationService'
 import { Budget } from '../models/Budget'
 import { Transaction } from '../models/Transaction'
 import { Constants } from '../constants/Constants'
@@ -9,12 +10,24 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
 /**
  * 预算管理服务
  * 负责预算的创建、查询、更新和超支预警
+ * 集成通知服务，预算超支时自动发送预警通知
  */
+/** 
+ * 预算总体状态 
+ */ 
+export class BudgetStatus { 
+  totalLimit: number = 0 
+  totalSpent: number = 0 
+  percent: number = 0 
+}
+
 export class BudgetService {
   private storageService: StorageService
+  private notificationService: NotificationService
 
   constructor() {
     this.storageService = StorageService.getInstance()
+    this.notificationService = NotificationService.getInstance()
   }
 
   /**
@@ -44,6 +57,24 @@ export class BudgetService {
 
       // 更新数据库中的 spentAmount
       await this.storageService.updateBudgetSpent(budget.id, budget.spentAmount)
+
+      // 检查是否需要发送预算预警通知
+      if (budget.limitAmount > 0) {
+        const percent = Math.round((budget.spentAmount / budget.limitAmount) * 100)
+        if (percent >= Constants.BUDGET_WARN_THRESHOLD * 100) {
+          try {
+            await this.notificationService.sendBudgetAlert(
+              budget.categoryName || '总预算',
+              budget.spentAmount,
+              budget.limitAmount,
+              percent
+            )
+          } catch (notifyErr) {
+            hilog.warn(0x0000, 'FinTrack', 'Budget notification failed: %{public}s',
+              JSON.stringify(notifyErr))
+          }
+        }
+      }
     }
 
     return budgets
@@ -90,7 +121,7 @@ export class BudgetService {
   /**
    * 计算本月总预算使用情况
    */
-  async getOverallBudgetStatus(): Promise<{ totalLimit: number; totalSpent: number; percent: number }> {
+  async getOverallBudgetStatus(): Promise<BudgetStatus> {
     const budgets = await this.getCurrentBudgets()
 
     let totalLimit = 0
@@ -113,7 +144,11 @@ export class BudgetService {
     }
 
     const percent = totalLimit > 0 ? totalSpent / totalLimit : 0
-    return { totalLimit, totalSpent, percent: Number(percent.toFixed(4)) }
+    const result = new BudgetStatus()
+    result.totalLimit = totalLimit
+    result.totalSpent = totalSpent
+    result.percent = Number(percent.toFixed(4))
+    return result
   }
 
   /**

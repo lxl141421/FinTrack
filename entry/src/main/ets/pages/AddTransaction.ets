@@ -4,12 +4,14 @@ import { Transaction } from '../models/Transaction'
 import { Category } from '../models/Category'
 import { StorageService } from '../services/StorageService'
 import { DistributedService } from '../services/DistributedService'
+import { NotificationService } from '../services/NotificationService'
 import { Constants } from '../constants/Constants'
 import { CurrencyUtils } from '../utils/CurrencyUtils'
 import { DateUtils } from '../utils/DateUtils'
 import { Validator, ValidationResult } from '../utils/Validator'
 import { ErrorHandler, ErrorType } from '../utils/ErrorHandler'
-import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../theme/Theme'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager, ThemeAnimation } from '../theme/Theme'
+import { hilog } from '@kit.PerformanceAnalysisKit'
 import { promptAction } from '@kit.ArkUI'
 
 @Entry
@@ -30,6 +32,7 @@ struct AddTransaction {
 
   private storageService = StorageService.getInstance()
   private distributedService = DistributedService.getInstance()
+  private notificationService = NotificationService.getInstance()
   private themeManager = ThemeManager.getInstance()
 
   aboutToAppear(): void {
@@ -127,6 +130,20 @@ struct AddTransaction {
         ErrorHandler.handle(syncErr as Object, ErrorType.SYNC, '分布式同步')
       }
 
+      // 大额交易通知提醒（≥500元）
+      try {
+        if (txn.amount >= 500) {
+          await this.notificationService.sendLargeTransactionAlert(
+            txn.amount,
+            txn.categoryName,
+            txn.type === Constants.TYPE_EXPENSE
+          )
+        }
+      } catch (notifyErr) {
+        hilog.warn(0x0000, 'FinTrack', 'Large txn notification failed: %{public}s',
+          JSON.stringify(notifyErr))
+      }
+
       promptAction.showToast({ message: '记录成功！' })
       router.back()
     } catch (err) {
@@ -138,7 +155,7 @@ struct AddTransaction {
 
   build() {
     Column() {
-      // 顶部类型选择
+      // 顶部类型选择（带滑动手势切换）
       Row({ space: ThemeSpacing.sm }) {
         this.buildTypeButton('支出', Constants.TYPE_EXPENSE, '#FA2A2D')
         this.buildTypeButton('收入', Constants.TYPE_INCOME, '#00B578')
@@ -146,6 +163,20 @@ struct AddTransaction {
       }
       .width('100%')
       .padding(ThemeSpacing.lg)
+      .gesture(
+        PanGesture({ direction: PanDirection.Horizontal })
+          .onActionEnd((event: GestureEvent) => {
+            if (event.offsetX < -50) {
+              // 左滑：切换到下一个类型
+              if (this.selectedType === Constants.TYPE_EXPENSE) this.switchType(Constants.TYPE_INCOME)
+              else if (this.selectedType === Constants.TYPE_INCOME) this.switchType(Constants.TYPE_TRANSFER)
+            } else if (event.offsetX > 50) {
+              // 右滑：切换到上一个类型
+              if (this.selectedType === Constants.TYPE_TRANSFER) this.switchType(Constants.TYPE_INCOME)
+              else if (this.selectedType === Constants.TYPE_INCOME) this.switchType(Constants.TYPE_EXPENSE)
+            }
+          })
+      )
 
       // 金额输入
       Column({ space: ThemeSpacing.sm }) {
@@ -203,7 +234,7 @@ struct AddTransaction {
         .alignSelf(ItemAlign.Start)
         .padding({ left: ThemeSpacing.lg })
 
-        Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
+        Flex({ wrap: FlexWrap.Wrap }) {
           ForEach(this.categories, (cat: Category) => {
             Column({ space: 4 }) {
               Text(cat.icon)
