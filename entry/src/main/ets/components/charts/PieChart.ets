@@ -123,14 +123,14 @@ export struct PieChart {
 
     // 中心文字
     ctx.fillStyle = '#181818'
-    ctx.font = `bold ${ThemeFont.lg}px sans-serif`
+    ctx.font = `bold ${ThemeFont.xxl}px sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(this.totalLabel, this.center, this.center - 10)
+    ctx.fillText(this.totalLabel, this.center, this.center - 16)
 
-    ctx.fillStyle = '#666666'
-    ctx.font = `${ThemeFont.sm}px sans-serif`
-    ctx.fillText(this.totalAmount, this.center, this.center + 12)
+    ctx.fillStyle = '#333333'
+    ctx.font = `bold ${ThemeFont.xl}px sans-serif`
+    ctx.fillText(this.totalAmount, this.center, this.center + 16)
   }
 
   private handleTap(event: TouchEvent): void {
