@@ -57,10 +57,11 @@ export class PieSlice {
   color: string = '#007DFF'
   percent: number = 0
 
-  constructor(label: string, value: number, color: string) {
+  constructor(label: string, value: number, color: string, total: number = 0) {
     this.label = label
     this.value = value
     this.color = color
+    this.percent = total > 0 ? value / total : 0
   }
 }
 

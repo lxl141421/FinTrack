@@ -380,9 +380,13 @@ struct Index {
   private convertToPieSlices(): PieSlice[] {
     const slices: PieSlice[] = []
     const keys = Object.keys(this.expenseByCategory)
+    let total = 0
+    for (let i = 0; i < keys.length; i++) {
+      total += this.expenseByCategory[keys[i]]
+    }
     for (let idx = 0; idx < keys.length; idx++) {
       const key = keys[idx]
-      slices.push(new PieSlice(key, this.expenseByCategory[key], this.pieColors[idx % this.pieColors.length]))
+      slices.push(new PieSlice(key, this.expenseByCategory[key], this.pieColors[idx % this.pieColors.length], total))
     }
     return slices
   }

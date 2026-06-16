@@ -41,7 +41,8 @@ export class BudgetService {
     const monthStart = DateUtils.getMonthStart()
     const monthEnd = DateUtils.getMonthEnd()
 
-    for (const budget of budgets) {
+    for (let _i = 0; _i < budgets.length; _i++) {
+      const budget = budgets[_i]
       const txns = await this.storageService.queryTransactions(
         Constants.TYPE_EXPENSE,
         monthStart,
@@ -50,7 +51,8 @@ export class BudgetService {
       )
 
       budget.spentAmount = 0
-      for (const txn of txns) {
+      for (let _j = 0; _j < txns.length; _j++) {
+      const txn = txns[_j]
         budget.spentAmount += txn.amount
       }
       budget.spentAmount = Number(budget.spentAmount.toFixed(2))
@@ -127,7 +129,8 @@ export class BudgetService {
     let totalLimit = 0
     let totalSpent = 0
 
-    for (const budget of budgets) {
+    for (let _i = 0; _i < budgets.length; _i++) {
+      const budget = budgets[_i]
       if (budget.category === '') {
         // 总预算
         totalLimit += budget.limitAmount
@@ -137,7 +140,8 @@ export class BudgetService {
 
     // 如果没有总预算，汇总各分类预算
     if (totalLimit === 0) {
-      for (const budget of budgets) {
+      for (let _i = 0; _i < budgets.length; _i++) {
+      const budget = budgets[_i]
         totalLimit += budget.limitAmount
         totalSpent += budget.spentAmount
       }
@@ -170,13 +174,14 @@ export class BudgetService {
       monthEnd
     )
 
-    for (const txn of txns) {
+    for (let _j = 0; _j < txns.length; _j++) {
+      const txn = txns[_j]
       const day = new Date(txn.date).getDate() - 1
       if (day >= 0 && day < daysInMonth) {
         dailyTotals[day] += txn.amount
       }
     }
 
-    return dailyTotals.map(v => Number(v.toFixed(2)))
+    return dailyTotals.slice(0, now.getDate()).map(v => Number(v.toFixed(2)))
   }
 }
