@@ -7,12 +7,12 @@ import { LineChart } from '../components/charts/LineChart'
 import { PieChart } from '../components/charts/PieChart'
 import { PieSlice } from '../utils/ChartUtils'
 import { Transaction } from '../models/Transaction'
-import { TransactionViewModel, LoadingState } from '../viewmodel/TransactionViewModel'
+import { StorageService } from '../services/StorageService'
 import { BudgetService } from '../services/BudgetService'
 import { Constants } from '../constants/Constants'
 import { DateUtils } from '../utils/DateUtils'
 import { CurrencyUtils } from '../utils/CurrencyUtils'
-import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager, getLightColors, getDarkColors } from '../theme/Theme'
+import { ThemeFont, ThemeRadius, ThemeSpacing, ThemeManager } from '../theme/Theme'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 
 @Entry
@@ -29,11 +29,11 @@ struct Index {
   @State pieColors: string[] = Constants.DEFAULT_CATEGORIES.map((_: string, i: number) =>
     ['#007DFF', '#00B578', '#FF8800', '#FA2A2D', '#9B59B6', '#3498DB',
      '#1ABC9C', '#F7CE46', '#E74C3C', '#2ECC71', '#34495E', '#95A5A6'][i % 12])
-  @State loadingState: LoadingState = LoadingState.IDLE
+  @State isLoading: boolean = true
   @State errorMessage: string = ''
   @State isPrivacyMode: boolean = false
 
-  private viewModel: TransactionViewModel = TransactionViewModel.getInstance()
+  private storageService = StorageService.getInstance()
   private budgetService = new BudgetService()
   private themeManager = ThemeManager.getInstance()
 
@@ -47,21 +47,46 @@ struct Index {
   }
 
   private async loadData(): Promise<void> {
-    this.loadingState = LoadingState.LOADING
+    this.isLoading = true
     this.errorMessage = ''
 
     try {
-      await this.viewModel.loadDashboardData()
+      const monthStart = DateUtils.getMonthStart()
+      const monthEnd = DateUtils.getMonthEnd()
 
-      this.monthlyIncome = this.viewModel.monthlyIncome
-      this.monthlyExpense = this.viewModel.monthlyExpense
-      this.monthlyBalance = this.viewModel.monthlyBalance
-      this.totalAssets = this.viewModel.totalAssets
-      this.recentTransactions = this.viewModel.recentTransactions
-      this.expenseByCategory = this.viewModel.expenseByCategory
-      this.loadingState = this.viewModel.loadingState
-      this.errorMessage = this.viewModel.errorMessage
+      // 直接查询，和 Transactions 页面一样
+      const incomeTxns = await this.storageService.queryTransactions(Constants.TYPE_INCOME, monthStart, monthEnd)
+      const expenseTxns = await this.storageService.queryTransactions(Constants.TYPE_EXPENSE, monthStart, monthEnd)
+      const allTxns = await this.storageService.queryTransactions(-1, 0, Date.now(), '', '', 5)
 
+      this.monthlyIncome = Number(incomeTxns.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      this.monthlyExpense = Number(expenseTxns.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      this.monthlyBalance = Number((this.monthlyIncome - this.monthlyExpense).toFixed(2))
+
+      // 总资产 = 历史全部收入 - 历史全部支出
+      const allIncome = await this.storageService.queryTransactions(Constants.TYPE_INCOME, 0, Date.now())
+      const allExpense = await this.storageService.queryTransactions(Constants.TYPE_EXPENSE, 0, Date.now())
+      const totalIncome = Number(allIncome.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      const totalExpense = Number(allExpense.reduce((sum: number, t: Transaction) => sum + t.amount, 0).toFixed(2))
+      this.totalAssets = Number((totalIncome - totalExpense).toFixed(2))
+
+      this.recentTransactions = allTxns
+
+      // 分类统计
+      const categoryMap: Record<string, number> = {}
+      for (let i = 0; i < expenseTxns.length; i++) {
+        const key = expenseTxns[i].categoryName
+        if (categoryMap[key] === undefined) {
+          categoryMap[key] = 0
+        }
+        categoryMap[key] += expenseTxns[i].amount
+      }
+      this.expenseByCategory = categoryMap
+
+      hilog.info(0x0000, 'FinTrack', 'Index loaded: income=%{public}s expense=%{public}s total=%{public}s',
+        this.monthlyIncome.toString(), this.monthlyExpense.toString(), this.totalAssets.toString())
+
+      // 趋势数据
       try {
         this.dailyTrend = await this.budgetService.getDailyExpenseTrend()
         const labels: string[] = []
@@ -70,36 +95,36 @@ struct Index {
         }
         this.trendLabels = labels
       } catch (trendErr) {
-        hilog.error(0x0000, 'FinTrack', 'Load trend failed')
         this.dailyTrend = []
       }
     } catch (err) {
-      hilog.error(0x0000, 'FinTrack', 'Load data failed')
-      this.errorMessage = '数据加载失败，请下拉刷新重试'
-      this.loadingState = LoadingState.ERROR
+      hilog.error(0x0000, 'FinTrack', 'Index loadData failed')
+      this.errorMessage = '数据加载失败'
+    } finally {
+      this.isLoading = false
     }
   }
 
   build() {
     Navigation() {
-      if (this.loadingState === LoadingState.LOADING && this.recentTransactions.length === 0) {
+      if (this.isLoading && this.recentTransactions.length === 0) {
         Column() {
           LoadingProgress()
             .width(48)
             .height(48)
           Text('加载中...')
             .fontSize(ThemeFont.md)
-            .fontColor(this.themeManager.isDark ? '#999' : '#666')
+            .fontColor('#666')
             .margin({ top: ThemeSpacing.md })
         }
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
-      } else if (this.loadingState === LoadingState.ERROR && this.recentTransactions.length === 0) {
+      } else if (this.errorMessage !== '' && this.recentTransactions.length === 0) {
         Column({ space: ThemeSpacing.md }) {
           Text('😵')
             .fontSize(64)
-          Text(this.errorMessage || '加载失败')
+          Text(this.errorMessage)
             .fontSize(ThemeFont.md)
             .fontColor('#999')
           Button('点击重试')
@@ -118,7 +143,6 @@ struct Index {
         Scroll() {
           Column({ space: ThemeSpacing.md }) {
             this.buildHeader()
-            this.buildSummaryCards()
             this.buildTrendChart()
             this.buildCategoryPie()
             this.buildRecentTransactions()
@@ -137,57 +161,60 @@ struct Index {
   @Builder
   buildHeader() {
     Column({ space: ThemeSpacing.sm }) {
-      // 顶部操作栏
+      // 总资产 + 操作按钮
       Row() {
-        Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.totalAssets))
-          .fontSize(32)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-        Blank()
-        // 股票入口
-        Button() {
-          Text('📈')
-            .fontSize(16)
-        }
-        .width(36)
-        .height(36)
-        .borderRadius(ThemeRadius.full)
-        .backgroundColor('#FFFFFF20')
-        .onClick(() => {
-          router.pushUrl({ url: 'pages/StockMarket' })
-        })
-        .margin({ right: ThemeSpacing.sm })
-
-        // 添加按钮
-        Button() {
-          Text('+')
-            .fontSize(20)
-            .fontColor('#FFFFFF')
+        Column({ space: 4 }) {
+          Text('总资产')
+            .fontSize(ThemeFont.xs)
+            .fontColor('#FFFFFF80')
+          Text(this.isPrivacyMode ? '****' : CurrencyUtils.format(this.totalAssets))
+            .fontSize(32)
             .fontWeight(FontWeight.Bold)
+            .fontColor('#FFFFFF')
         }
-        .width(36)
-        .height(36)
-        .borderRadius(ThemeRadius.full)
-        .backgroundColor('#FFFFFF30')
-        .onClick(() => {
-          router.pushUrl({ url: 'pages/AddTransaction' })
-        })
+        .alignItems(HorizontalAlign.Start)
+
+        Blank()
+
+        Row({ space: ThemeSpacing.sm }) {
+          Button() {
+            Text('📈')
+              .fontSize(16)
+          }
+          .width(36)
+          .height(36)
+          .borderRadius(ThemeRadius.full)
+          .backgroundColor('#FFFFFF20')
+          .onClick(() => {
+            router.pushUrl({ url: 'pages/StockMarket' })
+          })
+
+          Button() {
+            Text('+')
+              .fontSize(20)
+              .fontColor('#FFFFFF')
+              .fontWeight(FontWeight.Bold)
+          }
+          .width(36)
+          .height(36)
+          .borderRadius(ThemeRadius.full)
+          .backgroundColor('#FFFFFF30')
+          .onClick(() => {
+            router.pushUrl({ url: 'pages/AddTransaction' })
+          })
+        }
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
+      .alignItems(VerticalAlign.Bottom)
 
-      // 总资产标签
-      Text('总资产')
-        .fontSize(ThemeFont.xs)
-        .fontColor('#FFFFFF80')
-
-      // 本月结余
+      // 分割线
       Divider()
         .color('#FFFFFF20')
-        .margin({ top: 4, bottom: 4 })
+        .margin({ top: ThemeSpacing.sm, bottom: ThemeSpacing.sm })
 
+      // 本月三栏
       Row() {
-        Column({ space: 2 }) {
+        Column({ space: 4 }) {
           Text('本月收入')
             .fontSize(ThemeFont.xs)
             .fontColor('#FFFFFF80')
@@ -199,7 +226,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
-        Column({ space: 2 }) {
+        Column({ space: 4 }) {
           Text('本月支出')
             .fontSize(ThemeFont.xs)
             .fontColor('#FFFFFF80')
@@ -211,7 +238,7 @@ struct Index {
         .alignItems(HorizontalAlign.Center)
         .layoutWeight(1)
 
-        Column({ space: 2 }) {
+        Column({ space: 4 }) {
           Text('本月结余')
             .fontSize(ThemeFont.xs)
             .fontColor('#FFFFFF80')
@@ -224,7 +251,6 @@ struct Index {
         .layoutWeight(1)
       }
       .width('100%')
-      .margin({ top: ThemeSpacing.sm })
     }
     .width('100%')
     .padding(ThemeSpacing.lg)
@@ -233,29 +259,6 @@ struct Index {
       colors: [['#007DFF', 0.0], ['#005BB5', 1.0]]
     })
     .borderRadius(ThemeRadius.lg)
-  }
-
-  @Builder
-  buildSummaryCards() {
-    Row({ space: ThemeSpacing.md }) {
-      SummaryCard({
-        title: '本月收入',
-        amount: this.monthlyIncome,
-        color: '#00B578',
-        icon: '📈',
-        compact: true,
-        privacyMode: this.isPrivacyMode
-      })
-      SummaryCard({
-        title: '本月支出',
-        amount: this.monthlyExpense,
-        color: '#FA2A2D',
-        icon: '📉',
-        compact: true,
-        privacyMode: this.isPrivacyMode
-      })
-    }
-    .width('100%')
   }
 
   @Builder
@@ -279,6 +282,13 @@ struct Index {
           lineColor: '#FA2A2D',
           fillColor: '#FA2A2D20'
         })
+      } else {
+        Text('暂无趋势数据')
+          .fontSize(ThemeFont.sm)
+          .fontColor('#999')
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding(ThemeSpacing.lg)
       }
     }
     .width('100%')
